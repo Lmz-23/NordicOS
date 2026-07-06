@@ -1,20 +1,23 @@
 # NordicOS — Estado del Proyecto
 
-**Última actualización:** 2026-07-05
-**Versión:** 0.1.0 (sistema de paleta centralizada en construcción)
+**Última actualización:** 2026-07-06
+**Versión:** v0.1.0 (tag en git)
+**Repo:** https://github.com/Lmz-23/NordicOS
 
-## ¿Qué es NordicOS?
+## Descripción
 
-Setup de escritorio Linux con tema vikingo personalizado sobre Hyprland.
-Estética: hierro, piedra, acero, hielo. NO minimalista tipo macOS, NO tema Nord genérico.
+Sistema de paleta centralizada para entorno de escritorio Hyprland con estética vikinga (oscuro, hierro, hielo, sin tema Nord genérico). Una sola fuente de verdad (`palette/master.css`) genera los configs de color de 4 componentes.
 
-## Sistema de Paleta (NUEVO — Fases 0-4)
+## Componentes sincronizados
 
-### Arquitectura
-- `palette/master.css` — única fuente de verdad para colores
-- `palette/build.js` — generador Node.js que escribe a todos los componentes
-- `palette/watch.js` — watcher automático (chokidar)
-- `palette/preview.html` — preview visual de la paleta actual
+| Componente | Archivo generado | Notas |
+|---|---|---|
+| Waybar | `~/.config/waybar/themes/nordic.css` | @define-color, regenerado completo |
+| Kitty | `~/.config/kitty/theme.conf` | Incluido via `include theme.conf` en kitty.conf |
+| Wofi | `~/.config/wofi/style.css` | Regenerado completo (config manual en `~/.config/wofi/config`) |
+| Hyprland | Bloque en `~/.config/hypr/hyprland.lua` | Reemplazo entre markers `-- >>> NORDICOS PALETTE START >>>` / `-- <<< NORDICOS PALETTE END <<<` |
+
+## Sistema de paleta
 
 ### Paleta canónica (11 colores)
 | Token | Hex | Uso |
@@ -31,51 +34,82 @@ Estética: hierro, piedra, acero, hielo. NO minimalista tipo macOS, NO tema Nord
 | warning | #d89b3c | Advertencia |
 | error | #b84c4c | Error |
 
-### Flujo de trabajo
-1. Editar `palette/master.css`
-2. Guardar (watcher detecta → ejecuta build.js automáticamente)
-3. Verificar `palette/preview.html` en navegador
-4. Si todo OK, commit
+### Extras hardcoded (solo en kitty ANSI)
+- `magenta: #8b7aa0` (color5)
+- `magenta-bright: #a898c8` (color13)
+- `bright-white: #ffffff` (color15)
 
-## Componentes del sistema NordicOS
+## Estructura del proyecto
 
-### ✅ Completados (previo a Fases 0-4)
-- Waybar (configurado en `~/.config/waybar/`)
-- Kitty (`~/.config/kitty/kitty.conf`)
-- Wofi (`~/.config/wofi/`)
-
-### ⏳ Pendientes
-- Hyprlock
-- Hyprpaper
-- Conky (paneles laterales)
-- Tema GTK global
-- Tema de iconos vikingo
-- Cursor theme
-
-## Issues conocidos (a resolver en Fase 6)
-- `~/.config/hypr/colors.css` está huérfano (nadie lo importa)
-- `~/.config/hypr/hyprland.lua` tiene colores que NO respetan la paleta
-- `~/.config/hypr/autostart.sh` invoca `swww-daemon` que no está instalado
-- `~/.config/waybar/style-legacy.css` (329 líneas, código muerto)
-- `~/.config/waybar/config.jsonc.bak` (backup obsoleto)
-- `~/.config/waybar/power_menu.xml` (ignorado, se usa `.sh`)
-- Directorios vacíos: `~/.config/waybar/modules/`, `~/.config/waybar/scripts/`
-
-## Reglas del proyecto
-1. Un componente a la vez — esperar confirmación antes de avanzar
-2. Editar SOLO `palette/master.css` para cambiar colores (NUNCA los archivos generados)
-3. Comentar código para poder modificar después
-4. Informar ANTES de instalar paquetes
-5. Cero código muerto — eliminar archivos no usados
-
-## Comandos útiles
-```bash
-# Build manual (sin watcher)
-npm run build
-
-# Watcher automático
-npm run watch
-
-# Ver preview
-npm run preview
 ```
+/home/lmz/nordicos/
+├── palette/
+│   ├── master.css       ← fuente única (editar para cambiar colores)
+│   ├── build.js         ← generador (lee master.css, escribe 4 destinos)
+│   ├── watch.js         ← watcher automático (chokidar + debounce 200ms)
+│   ├── README.md        ← documentación completa
+│   └── preview.html     ← (ignorado en git) preview visual generado
+├── STATE.md             ← este archivo
+├── package.json         ← scripts: build, watch
+├── package-lock.json
+├── .gitignore
+├── backups/             ← (ignorado en git) backups automáticos de cada cambio
+└── node_modules/        ← (ignorado en git) dependencias npm (chokidar)
+```
+
+## Workflow diario
+
+```bash
+# 1. Arrancar watcher (una terminal aparte)
+cd /home/lmz/nordicos && npm run watch
+
+# 2. Editar master.css en tu editor favorito
+nano /home/lmz/nordicos/palette/master.css
+# O usar `npm run preview` para ver el HTML preview
+
+# 3. El watcher detecta el cambio → ejecuta build automáticamente
+# Output en consola: "Cambio detectado → Build OK"
+
+# 4. Recargar componentes manualmente para ver cambios:
+pkill waybar && waybar &    # waybar
+hyprctl reload              # bordes/sombras
+killall kitty && kitty      # nueva terminal con colores nuevos
+wofi --show drun            # wofi se ve al invocarlo
+```
+
+## Git workflow
+
+- Rama `master` = producción/estable
+- Rama `develop` = trabajo activo
+- Tag actual: `v0.1.0`
+- Remote: `https://github.com/Lmz-23/NordicOS.git`
+- Commits en español, estilo Conventional Commits
+
+```bash
+# Trabajo en develop
+git checkout develop
+# ... editar, build, verificar ...
+git add palette/master.css
+git commit -m "feat: nuevo color accent-soft"
+
+# Merge a master cuando esté estable
+git checkout master
+git merge develop
+```
+
+## Issues resueltos en este sistema
+
+1. **colors.css huérfano** (eliminado en Fase 6b) — nadie lo importaba
+2. **Colores Hyprland fuera de paleta** — reemplazados por bloque generado
+3. **swww-daemon muerto en autostart.sh** — eliminado en Fase 6b
+4. **style-legacy.css 329 líneas** — eliminado en Fase 6b
+5. **config.jsonc.bak** — eliminado en Fase 6b
+6. **JSON malformado en config.jsonc** — corregido
+7. **Bug buildHyprlandColors (newline extra)** — corregido en Fase 6a
+
+## Componentes pendientes (futuro)
+
+- Hyprlock (lock screen) — bloqueado por binario no instalado
+- Conky (paneles laterales con docker/git status) — no iniciado
+- Tema GTK global — no iniciado
+- Tema de iconos vikingo — no iniciado

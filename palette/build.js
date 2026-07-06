@@ -846,8 +846,12 @@ function buildWofiStyle(tokens) {
  *
  * Pure function — no I/O of its own. The two validation steps below are
  * read-only (luac `-p` = parse only, no codegen; pattern check is a pure
- * substring scan). Param: tokens map. Returns: Lua block string (with
- * trailing newline). Throws on validation failure.
+ * substring scan). Param: tokens map. Returns: Lua block string WITHOUT
+ * a trailing newline — `replaceMarkerBlock` preserves the newline that
+ * already follows the end marker in the target file, so appending our own
+ * would duplicate it (and historically accumulated one extra blank line
+ * per build, producing spurious mtime bumps + unnecessary backups).
+ * Throws on validation failure.
  * ========================================================================== */
 function buildHyprlandColors(tokens) {
   // Resolve master tokens with fallbacks so a missing token can't produce
@@ -902,7 +906,21 @@ function buildHyprlandColors(tokens) {
     '-- <<< NORDICOS PALETTE END <<<',
   ];
 
-  const content = block.join('\n') + '\n';
+  // NOTE: do NOT append a trailing '\n' here.
+  //
+  // `replaceMarkerBlock` splices the result between the markers, preserving
+  // whatever already follows the end marker in the target file (the file's
+  // own newline after `-- <<< NORDICOS PALETTE END <<<`). Concatenating an
+  // extra '\n' here produced a blank line post-marker AND — because each
+  // build rewrote the file — caused the blank-line count to grow by one
+  // every run (the previously-accumulated blank lines were re-sliced back
+  // in). Net effect: mtime bumped on every build even with no real change,
+  // backups filled up, and idempotency was broken.
+  //
+  // Removing the trailing newline restores idempotency: as long as the
+  // tokens don't change, the spliced output is byte-identical to the
+  // previous build.
+  const content = block.join('\n');
 
   // --- Validation 1: luac syntax check ------------------------------------
   // If `luac` is installed, parse the block to catch any Lua syntax
@@ -1548,6 +1566,13 @@ async function main() {
         console.log('  Ver palette/README.md para más detalles.');
       } else {
         // Markers found: backup + atomic write + diff.
+        //
+        // shouldBackup / shouldWrite gate on byte-equality so repeated
+        // `npm run build` invocations with no real change produce ZERO
+        // side effects: no backup file, no mtime bump, no log noise.
+        // This is the idempotency guarantee documented in STATE.md and is
+        // what the upstream buildHyprlandColors newline-accumulation bug
+        // (now fixed) was violating.
         let shouldBackup = false;
         const currentContent = fsSync.readFileSync(hyprlandConfFile, 'utf8');
         shouldBackup = (currentContent !== result.newContent);
@@ -1562,11 +1587,19 @@ async function main() {
           console.log('(no backup — contenido idéntico al actual)');
         }
 
-        try {
-          atomicWrite(hyprlandConfFile, result.newContent);
-          console.log(`✓ Hyprland block replaced: ${hyprlandConfFile}`);
-        } catch (err) {
-          console.error(`✗ Failed to write hyprland.lua: ${err.message}`);
+        // Skip the atomic write when content is unchanged. atomicWrite uses
+        // writeFileSync + renameSync, which bumps mtime even for an
+        // identical payload — and `hyprctl reload`/userspace tools that
+        // key off mtime would otherwise re-process unchanged configs.
+        if (shouldBackup) {
+          try {
+            atomicWrite(hyprlandConfFile, result.newContent);
+            console.log(`✓ Hyprland block replaced: ${hyprlandConfFile}`);
+          } catch (err) {
+            console.error(`✗ Failed to write hyprland.lua: ${err.message}`);
+          }
+        } else {
+          console.log('(no write — contenido idéntico al actual)');
         }
 
         if (backupPath) {
@@ -1608,17 +1641,22 @@ async function main() {
  * caller — the rest of the build pipeline is still useful.
  * ========================================================================== */
 function writeComponentWithBackup({ label, target, content, backupDir }) {
-  // Diff-aware backup gate: only snapshot when the on-disk content would
-  // actually change. This keeps BACKUP_DIR meaningful (one snapshot per
-  // state transition) instead of a duplicate per `npm run build` invocation.
-  let shouldBackup = false;
+  // Diff-aware gate: only snapshot AND only write when the on-disk content
+  // would actually change. This keeps BACKUP_DIR meaningful (one snapshot
+  // per state transition) AND keeps mtime stable across `npm run build`
+  // invocations that produce no real change — the latter matters because
+  // (a) `hyprctl reload`/userspace tools that key off mtime don't re-process
+  // unchanged configs, and (b) backups don't accumulate redundant copies.
+  // Renamed `shouldBackup` → `hasChanges` for accuracy now that the same
+  // flag also gates the write.
+  let hasChanges = true;
   if (fsSync.existsSync(target)) {
     const currentContent = fsSync.readFileSync(target, 'utf8');
-    shouldBackup = (currentContent !== content);
+    hasChanges = (currentContent !== content);
   }
 
   let backupPath = null;
-  if (shouldBackup) {
+  if (hasChanges) {
     backupPath = backupFile(target, backupDir);
     if (backupPath) {
       // Log the repo-relative path so the message stays short and copy/paste-safe.
@@ -1630,13 +1668,21 @@ function writeComponentWithBackup({ label, target, content, backupDir }) {
     console.log(`ℹ No existing ${label} — skipped backup (first run)`);
   }
 
-  try {
-    atomicWrite(target, content);
-    console.log(`✓ ${label} written: ${target}`);
-  } catch (err) {
-    // Non-fatal: other components and preview.html may still succeed.
-    console.error(`✗ Failed to write ${label}: ${err.message}`);
-    return;
+  // Skip the atomic write when content is unchanged. atomicWrite uses
+  // writeFileSync + renameSync, which bumps mtime even for an identical
+  // payload — and downstream userspace tools (hyprctl reload, waybar's
+  // inotify watcher, etc.) react to mtime changes, not content equality.
+  if (hasChanges) {
+    try {
+      atomicWrite(target, content);
+      console.log(`✓ ${label} written: ${target}`);
+    } catch (err) {
+      // Non-fatal: other components and preview.html may still succeed.
+      console.error(`✗ Failed to write ${label}: ${err.message}`);
+      return;
+    }
+  } else {
+    console.log(`(no write — contenido idéntico al actual: ${label})`);
   }
 
   // Diff vs previous — only meaningful when we took a backup.
