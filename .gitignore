@@ -1,0 +1,11 @@
+node_modules/
+*.log
+.DS_Store
+backups/
+!backups/.gitkeep
+palette/preview.html
+
+# opencode IDE/agent config (entorno de desarrollo, no del proyecto)
+.opencode/
+opencode.json
+opencode.jsonc

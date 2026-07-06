@@ -1,0 +1,14 @@
+{
+  "name": "nordicos-palette",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sistema de paleta centralizada para NordicOS",
+  "scripts": {
+    "build": "node palette/build.js",
+    "watch": "node palette/watch.js",
+    "preview": "xdg-open palette/preview.html"
+  },
+  "dependencies": {
+    "chokidar": "^3.6.0"
+  }
+}

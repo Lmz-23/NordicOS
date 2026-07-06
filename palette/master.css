@@ -1,0 +1,49 @@
+/* ============================================================================
+   NordicOS — Master Palette
+   ----------------------------------------------------------------------------
+   Este es el ÚNICO archivo que el usuario debe editar para cambiar colores.
+
+   Flujo:
+     1. Editas un valor hex aquí abajo
+     2. Guardas el archivo
+     3. El watcher detecta el cambio y ejecuta build.js
+     4. build.js regenera todos los archivos de tema de los componentes
+
+   Convención de nombres:
+     - bg, surface, surface-alt → fondos
+     - border                  → bordes y separadores
+     - accent, accent-soft     → color de acento principal
+     - text, text-muted        → texto
+     - success, warning, error → estados
+   ============================================================================ */
+
+
+/* === BACKGROUND ============================================================ */
+
+@define-color bg           #0b0f14;   /* hierro fundido — fondo principal */
+@define-color surface      #151c24;   /* paneles, superficies elevadas */
+@define-color surface-alt  #1a2332;   /* superficie alternativa (hover, énfasis) */
+
+
+/* === BORDERS & LINES ======================================================= */
+
+@define-color border       #3b556d;   /* acero frío — bordes y separadores */
+
+
+/* === ACCENTS =============================================================== */
+
+@define-color accent       #78c7ff;   /* hielo glaciar — acento principal */
+@define-color accent-soft  #a0d4ff;   /* hielo suave — acento secundario */
+
+
+/* === TEXT ================================================================== */
+
+@define-color text         #d4dde3;   /* blanco hueso — texto principal */
+@define-color text-muted   #8a9bab;   /* texto secundario (metadata, labels) */
+
+
+/* === STATUS ================================================================ */
+
+@define-color success      #6fbf73;   /* verde bosque — éxito */
+@define-color warning      #d89b3c;   /* oro viejo — advertencia */
+@define-color error        #b84c4c;   /* rojo sangre — error */
