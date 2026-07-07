@@ -6,7 +6,8 @@
   "scripts": {
     "build": "node palette/build.js",
     "watch": "node palette/watch.js",
-    "preview": "xdg-open palette/preview.html"
+    "preview": "xdg-open palette/preview.html",
+    "test": "node --test palette/test/build.test.js"
   },
   "dependencies": {
     "chokidar": "^3.6.0"
