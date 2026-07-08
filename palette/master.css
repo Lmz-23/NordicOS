@@ -47,3 +47,8 @@
 @define-color success      #6fbf73;   /* verde bosque — éxito */
 @define-color warning      #d89b3c;   /* oro viejo — advertencia */
 @define-color error        #b84c4c;   /* rojo sangre — error */
+
+
+/* === SHADOW ================================================================ */
+
+@define-color shadow       #1a1a1a;   /* carbón profundo — shadow de ventanas (alpha ee) */

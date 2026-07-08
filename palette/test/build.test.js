@@ -38,10 +38,12 @@ const {
   buildKittyTheme,
   buildWofiStyle,
   buildHyprlandColors,
+  buildHyprlandShadow,    // (A.1: shadow-color marker block — independent of PALETTE block)
   buildDunstConfig,      // (A.4: dunst is the 5th fully-generated destination)
   replaceMarkerBlock,
   hexToRgba,
   hexToRgbaString,
+  hexToHyprlandNumber,   // (A.1: helper for shadow 0xAARRGGBB numeric form)
   atomicWrite,
   generateDiff,
   HEX_REGEX,
@@ -69,6 +71,7 @@ const CANONICAL_TOKENS = Object.freeze({
   success:      '#6fbf73',
   warning:      '#d89b3c',
   error:        '#b84c4c',
+  shadow:       '#1a1a1a',  // (A.1: shadow de ventanas — alpha ee empaquetado por helper)
 });
 
 // ---------------------------------------------------------------------------
@@ -614,6 +617,154 @@ describe('buildHyprlandColors — luac syntax check (only meaningful when luac i
     // Skipped on hosts without luac (function handles ENOENT gracefully).
     const out = buildHyprlandColors(CANONICAL_TOKENS);
     assert.ok(out.length > 0);
+  });
+});
+
+// ===========================================================================
+// 9b. buildHyprlandShadow — A.1: marker block for decoration.shadow.color
+//
+// This block lives INSIDE `decoration.shadow = { ... }` and emits ONLY the
+// `color` field. It uses its OWN markers (SHADOW, not PALETTE) so the two
+// blocks can evolve independently. The contract is narrower than the
+// palette block — single assignment, no gradient, no string-form rgba.
+// ===========================================================================
+describe('buildHyprlandShadow', () => {
+  const out = buildHyprlandShadow(CANONICAL_TOKENS);
+
+  it('does NOT end with a trailing newline (idempotency contract — same as palette block)', () => {
+    assert.notEqual(out.slice(-1), '\n');
+  });
+
+  it('starts with the SHADOW start marker (NOT the PALETTE one)', () => {
+    assert.ok(out.startsWith('-- >>> NORDICOS SHADOW START >>>'));
+    assert.ok(!out.startsWith('-- >>> NORDICOS PALETTE START >>>'));
+  });
+
+  it('ends with the SHADOW end marker (NOT the PALETTE one)', () => {
+    assert.ok(out.endsWith('-- <<< NORDICOS SHADOW END <<<'));
+    assert.ok(!out.endsWith('-- <<< NORDICOS PALETTE END <<<'));
+  });
+
+  it('emits `color = 0xee1a1a1a` with the canonical shadow token #1a1a1a + alpha ee', () => {
+    assert.match(out, /color\s*=\s*0xee1a1a1a/);
+  });
+
+  it('does NOT contain string-form rgba(...) (must be the numeric 0x form)', () => {
+    assert.doesNotMatch(out, /rgba\(/);
+  });
+
+  it('does NOT contain any of the user-owned shadow fields (range, render_power, enabled)', () => {
+    assert.doesNotMatch(out, /range\s*=/);
+    assert.doesNotMatch(out, /render_power\s*=/);
+    assert.doesNotMatch(out, /enabled\s*=/);
+  });
+
+  it('contains the GENERATED — DO NOT EDIT MANUALLY comment', () => {
+    assert.match(out, /-- GENERATED — DO NOT EDIT MANUALLY/);
+  });
+
+  it('uses the hardcoded fallback #1a1a1a when called with empty tokens {}', () => {
+    const out2 = buildHyprlandShadow({});
+    // Default fallback should still produce 0xee1a1a1a
+    assert.match(out2, /color\s*=\s*0xee1a1a1a/);
+  });
+
+  it('changes the output when the shadow token changes', () => {
+    const a = buildHyprlandShadow({ shadow: '#1a1a1a' });
+    const b = buildHyprlandShadow({ shadow: '#222222' });
+    assert.notEqual(a, b);
+    assert.match(b, /0xee222222/);
+  });
+
+  it('is byte-stable across repeated calls (idempotent at the function level)', () => {
+    const a = buildHyprlandShadow(CANONICAL_TOKENS);
+    const b = buildHyprlandShadow(CANONICAL_TOKENS);
+    assert.equal(a, b);
+  });
+});
+
+describe('buildHyprlandShadow — luac syntax check (only meaningful when luac is installed)', () => {
+  it('produces a block that parses cleanly with `luac -p -`', { skip: !commandExists('luac') }, () => {
+    // buildHyprlandShadow throws if luac rejects the wrapped snippet;
+    // reaching the next line means the syntax check passed.
+    const out = buildHyprlandShadow(CANONICAL_TOKENS);
+    assert.ok(out.length > 0);
+  });
+});
+
+// ===========================================================================
+// 9c. Marker independence — palette vs shadow blocks use distinct markers
+//
+// Critical: if either block accidentally used the other's markers,
+// replaceMarkerBlock would splice them together and break both. Pinning
+// the independence prevents silent cross-contamination.
+// ===========================================================================
+describe('Hyprland marker independence (palette vs shadow)', () => {
+  const paletteBlock = buildHyprlandColors(CANONICAL_TOKENS);
+  const shadowBlock  = buildHyprlandShadow(CANONICAL_TOKENS);
+
+  it('palette block carries PALETTE markers and NOT SHADOW markers', () => {
+    assert.ok(paletteBlock.includes('-- >>> NORDICOS PALETTE START >>>'));
+    assert.ok(paletteBlock.includes('-- <<< NORDICOS PALETTE END <<<'));
+    assert.ok(!paletteBlock.includes('-- >>> NORDICOS SHADOW START >>>'),
+      'palette block NO debe contener shadow start marker');
+    assert.ok(!paletteBlock.includes('-- <<< NORDICOS SHADOW END <<<'),
+      'palette block NO debe contener shadow end marker');
+  });
+
+  it('shadow block carries SHADOW markers and NOT PALETTE markers', () => {
+    assert.ok(shadowBlock.includes('-- >>> NORDICOS SHADOW START >>>'));
+    assert.ok(shadowBlock.includes('-- <<< NORDICOS SHADOW END <<<'));
+    assert.ok(!shadowBlock.includes('-- >>> NORDICOS PALETTE START >>>'),
+      'shadow block NO debe contener palette start marker');
+    assert.ok(!shadowBlock.includes('-- <<< NORDICOS PALETTE END <<<'),
+      'shadow block NO debe contener palette end marker');
+  });
+});
+
+// ===========================================================================
+// 9d. hexToHyprlandNumber — A.1: helper that converts #RRGGBB + alphaHex
+// to the JS number representing the 0xAARRGGBB value Hyprland's Lua bridge
+// accepts for numeric color properties like decoration.shadow.color.
+// ===========================================================================
+describe('hexToHyprlandNumber', () => {
+  it('convierte #1a1a1a + ee a 0xee1a1a1a (como número JS)', () => {
+    assert.equal(hexToHyprlandNumber('#1a1a1a', 'ee'), 0xee1a1a1a);
+  });
+
+  it('acepta alpha default ee', () => {
+    assert.equal(hexToHyprlandNumber('#1a1a1a'), 0xee1a1a1a);
+  });
+
+  it('convierte #3b556d + aa a 0xaa3b556d', () => {
+    assert.equal(hexToHyprlandNumber('#3b556d', 'aa'), 0xaa3b556d);
+  });
+
+  it('retorna un número (no string, no rgba)', () => {
+    const result = hexToHyprlandNumber('#1a1a1a', 'ee');
+    assert.equal(typeof result, 'number');
+    assert.ok(!String(result).includes('rgba'));
+  });
+
+  it('alpha 00 produce 0x00rrggbb', () => {
+    assert.equal(hexToHyprlandNumber('#ffffff', '00'), 0x00ffffff);
+  });
+
+  it('passthrough en hex malformado (mismo contrato que hexToRgba*)', () => {
+    assert.equal(hexToHyprlandNumber('not-a-hex', 'ee'), 'not-a-hex');
+    assert.equal(hexToHyprlandNumber('#abc', 'ee'), '#abc');  // 3 dígitos no válidos
+    assert.equal(hexToHyprlandNumber('', 'ee'), '');          // string vacía
+  });
+
+  it('mayúsculas y minúsculas son equivalentes', () => {
+    assert.equal(hexToHyprlandNumber('#1A1A1A', 'EE'), 0xee1a1a1a);
+    assert.equal(hexToHyprlandNumber('#1a1a1a', 'ee'), 0xee1a1a1a);
+    assert.equal(hexToHyprlandNumber('#AaBbCc', 'Ff'), 0xffaabbcc);
+  });
+
+  it('preserva ceros a la izquierda en el alpha (padStart a 2 dígitos)', () => {
+    // alphaHex "0e" debe producir 0x0e..., NO 0xe... (que sería solo 7 chars)
+    assert.equal(hexToHyprlandNumber('#1a1a1a', '0e'), 0x0e1a1a1a);
   });
 });
 

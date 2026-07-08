@@ -348,6 +348,7 @@ function buildPreviewHtml(colors) {
       --success: ${tokens.success || '#6fbf73'};
       --warning: ${tokens.warning || '#d89b3c'};
       --error: ${tokens.error || '#b84c4c'};
+      --shadow: ${tokens.shadow || '#1a1a1a'};  /* (A.1) carbón profundo — shadow de ventanas */
     }
 
     * { box-sizing: border-box; }
@@ -563,6 +564,38 @@ function hexToRgbaString(hex, alphaHex = 'ee') {
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return `rgba(${to2(r)}${to2(g)}${to2(b)}${alphaHex})`;
+}
+
+/* ============================================================================
+ * hexToHyprlandNumber(hex, alphaHex)
+ * ----------------------------------------------------------------------------
+ * Converts a 6-digit hex color into Hyprland's compact numeric notation
+ * (`0xAARRGGBB`) for properties like `decoration.shadow.color`. Returns a
+ * JavaScript number — not a string — so the caller can format it however
+ * downstream needs.
+ *
+ * `alphaHex` is the alpha channel as a 2-digit hex string (no "0x" prefix).
+ * Default "ee" ≈ 93% opacity, matching the project's "barely transparent"
+ * default for ambient shadow.
+ *
+ * Example:
+ *   hexToHyprlandNumber('#1a1a1a', 'ee') -> 3998364186 (== 0xee1a1a1a)
+ *   hexToHyprlandNumber('#3b556d', 'aa') -> 2856520045 (== 0xaa3b556d)
+ *
+ * Why a separate helper from hexToRgbaString:
+ *   - hexToRgbaString returns a STRING ("rgba(rrggbbaa)") — that's the form
+ *     Hyprland accepts for `col.active_border` (a string-shaped property).
+ *   - This helper returns a NUMBER (0xAARRGGBB as a JS number) — that's the
+ *     form Hyprland accepts for `decoration.shadow.color` (a numeric
+ *     property). The two are interchangeable at runtime in Hyprland but NOT
+ *     at the type level here, so keeping them separate prevents accidental
+ *     cross-use.
+ * ========================================================================== */
+function hexToHyprlandNumber(hex, alphaHex = 'ee') {
+  if (typeof hex !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(hex)) {
+    return hex; // passthrough on malformed input (consistent with hexToRgba* helpers)
+  }
+  return parseInt(`${alphaHex}${hex.slice(1)}`, 16);
 }
 
 /* ============================================================================
@@ -1041,6 +1074,120 @@ function buildHyprlandColors(tokens) {
   if (missing.length > 0) {
     throw new Error(
       `Hyprland block failed pattern check.\n` +
+      `Missing required substrings: ${missing.join('; ')}\n` +
+      `--- Generated content ---\n${content}`
+    );
+  }
+
+  return content;
+}
+
+/* ============================================================================
+ * buildHyprlandShadow(tokens)
+ * ----------------------------------------------------------------------------
+ * Renders the Hyprland shadow-color block that lives between the
+ * `-- >>> NORDICOS SHADOW START >>>` and `-- <<< NORDICOS SHADOW END <<<`
+ * markers inside `~/.config/hypr/hyprland.lua`.
+ *
+ * The block is designed to live INSIDE `decoration.shadow = { ... }`. It
+ * emits ONLY the `color` field — `enabled`, `range`, and `render_power`
+ * remain user-owned (they're preferences, not palette decisions).
+ *
+ * Marker block independence:
+ *   This block uses ITS OWN markers (SHADOW), NOT the PALETTE markers that
+ *   `buildHyprlandColors` uses. The two blocks can therefore evolve
+ *   independently and are spliced by separate `replaceMarkerBlock` calls.
+ *
+ * Numeric form (not rgba string):
+ *   Hyprland accepts both `"0xAARRGGBB"` (Lua hex literal) and
+ *   `"rgba(rrggbbaa)"` (string-form) for color properties. We use the
+ *   numeric form here because `decoration.shadow.color` is canonically a
+ *   numeric value in Hyprland's config grammar (and matches what the user
+ *   had hand-written before this tokenization: `0xee1a1a1a`). The helper
+ *   `hexToHyprlandNumber` is the sole producer of the JS number we then
+ *   format as `0x` + hex literal.
+ *
+ * Pure function — no I/O of its own. Two validations below are read-only
+ * (luac `-p` parse-only, pattern check is a substring scan). Param: tokens
+ * map. Returns: Lua block string WITHOUT a trailing newline — same
+ * idempotency contract as `buildHyprlandColors`.
+ * Throws on validation failure.
+ * ========================================================================== */
+function buildHyprlandShadow(tokens) {
+  // Resolve master token with a fallback so a missing token can't produce
+  // an invalid Lua block (Hyprland would silently ignore a malformed
+  // number). Default matches the historical hardcoded `0xee1a1a1a` value
+  // the user had before tokenization.
+  const shadow = tokens.shadow || '#1a1a1a';
+
+  // hexToHyprlandNumber returns a JS number (e.g. 0xee1a1a1a = 3998364186);
+  // format as a Lua hex literal so the emitted block reads `0xee1a1a1a`,
+  // matching Hyprland's canonical shadow.color syntax.
+  const shadowNum = hexToHyprlandNumber(shadow, 'ee');
+  const shadowLiteral = `0x${shadowNum.toString(16).padStart(8, '0')}`;
+
+  // Trailing comma after `color = 0xee1a1a1a,` is OPTIONAL at the end of
+  // a Lua table but VALID syntax; preserved for safety in case the user
+  // adds more shadow fields later (mirrors buildHyprlandColors' contract).
+  // The block is timestamp-free for stable byte diffs against git.
+  const block = [
+    '-- >>> NORDICOS SHADOW START >>>',
+    '-- GENERATED — DO NOT EDIT MANUALLY',
+    '-- Source: /home/lmz/nordicos/palette/master.css',
+    '-- Generated by: palette/build.js',
+    '',
+    `color = ${shadowLiteral},`,
+    '',
+    '-- <<< NORDICOS SHADOW END <<<',
+  ];
+
+  // NOTE: do NOT append a trailing '\n' here. Same reason as
+  // buildHyprlandColors — `replaceMarkerBlock` preserves the file's
+  // existing newline after the end marker, and adding our own would
+  // accumulate blank lines across rebuilds.
+  const content = block.join('\n');
+
+  // --- Validation 1: luac syntax check ------------------------------------
+  // Same approach as buildHyprlandColors: wrap the block in a mock
+  // table so the standalone parse mimics the real context (the block
+  // lives inside `decoration.shadow = { ... }`). Trailing `,` after the
+  // assignment is OPTIONAL here (the block is the last field) but we
+  // include it to mirror the real-world usage where the user may add
+  // more shadow fields below the markers.
+  try {
+    const wrapped = `local shadow = {\n${content}\n}\n`;
+    execSync('luac -p -', { input: wrapped, stdio: ['pipe', 'pipe', 'pipe'] });
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      // luac not installed — degraded validation, pattern check below still runs.
+    } else {
+      const diagnostic = err.stderr
+        ? err.stderr.toString().trim()
+        : (err.message || '(sin diagnóstico)');
+      throw new Error(
+        `Hyprland shadow block failed luac syntax check.\n` +
+        `Diagnostic: ${diagnostic}\n` +
+        `--- Generated content ---\n${content}`
+      );
+    }
+  }
+
+  // --- Validation 2: structural pattern check ----------------------------
+  // Three required substrings (intentionally strict — false positives are
+  // cheap to fix; false negatives ship a broken block):
+  //   - '-- >>> NORDICOS SHADOW START >>>' → block begins with its OWN marker
+  //                                         (not the PALETTE one)
+  //   - 'color = 0x'                       → valid assignment to a hex literal
+  //   - '-- <<< NORDICOS SHADOW END <<<'   → block ends with its OWN marker
+  const requiredSubstrings = [
+    '-- >>> NORDICOS SHADOW START >>>',
+    'color = 0x',
+    '-- <<< NORDICOS SHADOW END <<<',
+  ];
+  const missing = requiredSubstrings.filter((s) => !content.includes(s));
+  if (missing.length > 0) {
+    throw new Error(
+      `Hyprland shadow block failed pattern check.\n` +
       `Missing required substrings: ${missing.join('; ')}\n` +
       `--- Generated content ---\n${content}`
     );
@@ -1579,6 +1726,7 @@ async function main() {
     const kittyContent   = buildKittyTheme(tokens);
     const wofiContent    = buildWofiStyle(tokens);
     const hyprlandBlock  = buildHyprlandColors(tokens);
+    const hyprlandShadow = buildHyprlandShadow(tokens);
     const dunstContent   = buildDunstConfig(tokens);
 
     // --- Resolve target paths once so every branch uses the same ones ---
@@ -1600,8 +1748,9 @@ async function main() {
       console.log('  2. ' + kittyThemeFile);
       console.log('  3. ' + kittyConfFile + ' (migración one-shot, solo si NO está migrado)');
       console.log('  4. ' + wofiStyleFile + ' (full replacement)');
-      console.log('  5. ' + hyprlandConfFile + ' (solo si markers presentes)');
-      console.log('  6. ' + dunstrcFile + ' (full replacement)');
+      console.log('  5. ' + hyprlandConfFile + ' (palette marker block, solo si markers presentes)');
+      console.log('  6. ' + hyprlandConfFile + ' (shadow marker block, solo si markers presentes)');
+      console.log('  7. ' + dunstrcFile + ' (full replacement)');
       console.log('');
 
       // --- 1. Waybar ---
@@ -1652,7 +1801,7 @@ async function main() {
       console.log('');
 
       // --- 5. Hyprland marker replacement ---
-      console.log('--- 5. hyprland.lua (marker block) ---');
+      console.log('--- 5. hyprland.lua (palette marker block) ---');
       if (!fsSync.existsSync(hyprlandConfFile)) {
         console.log('(hyprland.lua no existe — se omitiría)');
       } else {
@@ -1663,7 +1812,7 @@ async function main() {
           hyprlandBlock
         );
         if (result === null) {
-          console.log('⚠ Hyprland: markers no encontrados. Añádelos manualmente:');
+          console.log('⚠ Hyprland palette: markers no encontrados. Añádelos manualmente:');
           console.log('  -- >>> NORDICOS PALETTE START >>>');
           console.log('  ... (bloque col { ... } existente) ...');
           console.log('  -- <<< NORDICOS PALETTE END <<<');
@@ -1679,13 +1828,46 @@ async function main() {
         }
       }
 
-      // --- 6. Dunst (full replacement) ----------------------------------
+      // --- 6. Hyprland shadow marker block (independent markers) ----------
+      // Same file, different marker pair (SHADOW vs PALETTE) — they're
+      // independent so each can evolve without touching the other.
+      console.log('');
+      console.log('--- 6. hyprland.lua (shadow marker block) ---');
+      if (!fsSync.existsSync(hyprlandConfFile)) {
+        console.log('(hyprland.lua no existe — se omitiría)');
+      } else {
+        const shadowResult = replaceMarkerBlock(
+          hyprlandConfFile,
+          '-- >>> NORDICOS SHADOW START >>>',
+          '-- <<< NORDICOS SHADOW END <<<',
+          hyprlandShadow
+        );
+        if (shadowResult === null) {
+          console.log('⚠ Hyprland shadow: markers no encontrados. Añádelos manualmente:');
+          console.log('  1. Abre ~/.config/hypr/hyprland.lua');
+          console.log('  2. Localiza `decoration.shadow.color`');
+          console.log('  3. Envuelve la línea con markers:');
+          console.log('       -- >>> NORDICOS SHADOW START >>>');
+          console.log('       color = 0xee1a1a1a');
+          console.log('       -- <<< NORDICOS SHADOW END <<<');
+        } else {
+          const before = fsSync.readFileSync(hyprlandConfFile, 'utf8');
+          const diff = generateDiff(before, shadowResult.newContent, 'hyprland.lua (shadow)');
+          if (diff) {
+            console.log(diff);
+          } else {
+            console.log('(no changes)');
+          }
+        }
+      }
+
+      // --- 7. Dunst (full replacement) ----------------------------------
       // Same shape as wofi/waybar: a self-contained file is generated in full,
       // diffed against the on-disk content (if any), and printed if it would
       // change. `writeComponentWithBackup` handles the actual write in the
       // real path; the dry-run only previews.
       console.log('');
-      console.log('--- 6. dunst dunstrc ---');
+      console.log('--- 7. dunst dunstrc ---');
       if (fsSync.existsSync(dunstrcFile)) {
         const before = fsSync.readFileSync(dunstrcFile, 'utf8');
         const diff = generateDiff(before, dunstContent, 'dunstrc');
@@ -1831,6 +2013,71 @@ async function main() {
       }
     }
 
+    // === 7e2. Hyprland shadow (second marker block) =========================
+    // Same marker-replacement pattern as the palette block but with its OWN
+    // independent markers (SHADOW START/END vs PALETTE START/END), so the two
+    // blocks can evolve independently. If the user's hyprland.lua doesn't
+    // yet have these markers, print setup instructions and skip — we never
+    // auto-inject markers (user-driven decision, same as palette).
+    if (!fsSync.existsSync(hyprlandConfFile)) {
+      console.log('ℹ hyprland.lua no existe — se omite (Hyprland no instalado?)');
+    } else {
+      const shadowResult = replaceMarkerBlock(
+        hyprlandConfFile,
+        '-- >>> NORDICOS SHADOW START >>>',
+        '-- <<< NORDICOS SHADOW END <<<',
+        hyprlandShadow
+      );
+      if (shadowResult === null) {
+        console.log('⚠ Hyprland shadow: markers no encontrados. Añádelos manualmente:');
+        console.log('  1. Abre ~/.config/hypr/hyprland.lua');
+        console.log('  2. Localiza `decoration = { shadow = { ... } }`');
+        console.log('  3. Envuelve SOLO la línea `color = 0xee1a1a1a` con markers:');
+        console.log('       -- >>> NORDICOS SHADOW START >>>');
+        console.log('       color = 0xee1a1a1a');
+        console.log('       -- <<< NORDICOS SHADOW END <<<');
+        console.log('  Ver palette/README.md para más detalles.');
+      } else {
+        // Same byte-equality + backup + atomic-write pattern as the
+        // palette block above. Repeated per the established convention.
+        let shouldBackup = false;
+        const currentContent = fsSync.readFileSync(hyprlandConfFile, 'utf8');
+        shouldBackup = (currentContent !== shadowResult.newContent);
+
+        let backupPath = null;
+        if (shouldBackup) {
+          backupPath = backupFile(hyprlandConfFile, BACKUP_DIR);
+          if (backupPath) {
+            console.log(`✓ Backup saved: ${path.relative(PROJECT_ROOT, backupPath)}`);
+          }
+        } else {
+          console.log('(no backup — shadow block idéntico al actual)');
+        }
+
+        if (shouldBackup) {
+          try {
+            atomicWrite(hyprlandConfFile, shadowResult.newContent);
+            console.log('✓ Hyprland shadow block replaced');
+          } catch (err) {
+            console.error(`✗ Failed to write hyprland.lua (shadow block): ${err.message}`);
+          }
+        } else {
+          console.log('(no write — shadow block idéntico al actual)');
+        }
+
+        if (backupPath) {
+          const oldContent = fsSync.readFileSync(backupPath, 'utf8');
+          const diff = generateDiff(oldContent, shadowResult.newContent, 'hyprland.lua (shadow)');
+          if (diff) {
+            console.log('Diff vs previous:');
+            console.log(diff);
+          } else {
+            console.log('(no changes — shadow block idéntico al anterior)');
+          }
+        }
+      }
+    }
+
     // === 7f. Dunst (full replacement) =======================================
     // Same shape as wofi/waybar/kitty: `writeComponentWithBackup` handles
     // the diff-aware backup + atomic write + diff display in one call.
@@ -1954,11 +2201,13 @@ module.exports = {
   buildKittyTheme,
   buildWofiStyle,
   buildHyprlandColors,
+  buildHyprlandShadow,  // (A.1: shadow-color marker block — independent of PALETTE block)
   buildDunstConfig,    // (A.4: dunst as the 5th fully-generated destination)
   migrateKittyConfig,
   replaceMarkerBlock,
   hexToRgba,
   hexToRgbaString,
+  hexToHyprlandNumber,  // (A.1: helper for shadow 0xAARRGGBB numeric form)
   backupFile,
   atomicWrite,
   generateDiff,
