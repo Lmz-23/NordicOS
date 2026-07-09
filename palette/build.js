@@ -1227,11 +1227,24 @@ function buildHyprlandShadow(tokens) {
  *   - sort                 → yes               (upstream default)
  *   - alignment            → left              (upstream default)
  *   - vertical_alignment   → center            (upstream default)
- *   - follow               → none              (upstream default)
+ *   - follow               → keyboard          (OVERRIDE — see note below)
  *   - mouse_left_click     → close_current     (upstream default)
  *   - mouse_middle_click   → do_action, close_current  (upstream default)
  *   - mouse_right_click    → close_all         (upstream default)
  *   - transparency         → 0                 (upstream default)
+ *
+ * follow = keyboard (overriding upstream's `none`) is INTENTIONAL: in a
+ * multi-monitor Hyprland setup, `monitor = 0` (the default Dunst falls back
+ * to when the curated block omits `monitor`) binds to the FIRST wl_output
+ * in the registry, which on this host is HDMI-A-1 (the external display,
+ * workspace 2). With `follow = none`, every notification — regardless of
+ * which workspace the user is on when they click — lands on that fixed
+ * output. Setting `follow = keyboard` routes each notification to the
+ * output that contains the window with keyboard focus, i.e. the active
+ * workspace's monitor. The man page confirms the Wayland semantics:
+ * "On Wayland there is no difference between mouse and keyboard focus.
+ * When either of them is used, the compositor will choose an output."
+ * See battery_detail.sh bug report 2026-07-08 for the original diagnosis.
  *
  * Pure function — no I/O. Param: tokens map from parseMaster().tokens.
  * Returns: string with the full dunstrc content, NO trailing newline (matches
@@ -1288,7 +1301,7 @@ function buildDunstConfig(tokens) {
     '    sort = yes',
     '    alignment = left',
     '    vertical_alignment = center',
-    '    follow = none',
+    '    follow = keyboard',
     '    mouse_left_click = close_current',
     '    mouse_middle_click = do_action, close_current',
     '    mouse_right_click = close_all',

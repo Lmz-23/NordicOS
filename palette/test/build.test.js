@@ -1277,6 +1277,15 @@ describe('buildDunstConfig', () => {
     // The 9 curated [global] keys must appear with their EXACT upstream
     // values. If any of these regress, Dunst's behavior will change
     // (different format / alignment / mouse bindings / sort order).
+    //
+    // EXCEPTION: `follow` is intentionally set to `keyboard` instead of the
+    // upstream default `none`. Rationale: on this multi-monitor Hyprland
+    // host, `monitor = 0` (Dunst's fallback when [global] omits `monitor`)
+    // binds to HDMI-A-1 (the first wl_output in the registry, workspace 2),
+    // so `follow = none` causes every notification — regardless of where the
+    // user clicks — to land on workspace 2. `follow = keyboard` routes each
+    // notification to the monitor with keyboard focus, i.e. the active
+    // workspace. See build.js header comment for buildDunstConfig.
     const globalBlock = out.slice(out.indexOf('[global]'), out.indexOf('[urgency_low]'));
     // The format string uses '\n' in source which renders as a literal
     // backslash-n in INI; Dunst's parser expands it to a newline at render
@@ -1286,7 +1295,7 @@ describe('buildDunstConfig', () => {
     assert.match(globalBlock, /^\s+sort\s+=\s+yes\s*$/m);
     assert.match(globalBlock, /^\s+alignment\s+=\s+left\s*$/m);
     assert.match(globalBlock, /^\s+vertical_alignment\s+=\s+center\s*$/m);
-    assert.match(globalBlock, /^\s+follow\s+=\s+none\s*$/m);
+    assert.match(globalBlock, /^\s+follow\s+=\s+keyboard\s*$/m);
     assert.match(globalBlock, /^\s+mouse_left_click\s+=\s+close_current\s*$/m);
     assert.match(globalBlock, /^\s+mouse_middle_click\s+=\s+do_action, close_current\s*$/m);
     assert.match(globalBlock, /^\s+mouse_right_click\s+=\s+close_all\s*$/m);
