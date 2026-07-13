@@ -1,7 +1,7 @@
 # NordicOS — Especificación técnica del sistema de diseño
 
 > **Fuente única de verdad visual:** `docs/design-language.md` (ADN).
-> **Fuente única de verdad de valores:** `palette/master.css` (11 colores canónicos + 3 extras kitty).
+> **Fuente única de verdad de valores:** `palette/master.css` (12 colores canónicos + 3 extras kitty).
 > **Si este documento entra en conflicto con cualquiera de los anteriores, los anteriores ganan.** Actualizar primero la fuente, sincronizar después.
 
 ---
@@ -39,6 +39,7 @@ bg           surface      surface-alt
 border       accent       accent-soft
 text         text-muted
 success      warning      error
+shadow
 ```
 
 Extras kitty (no aparecen en master.css, viven en `KITTY_EXTRAS` dentro de `palette/build.js`):
@@ -112,7 +113,7 @@ Cada contrato declara: archivo destino, formato, naming, renames. Si una app no 
 | **Renames activos** | `accent → ice`, `accent-soft → ice-soft`, `error → danger` |
 | **Implementación** | `WAYBAR_MAPPING` en `palette/build.js` |
 
-Los 11 roles semánticos se traducen a nombres waybar vía `WAYBAR_MAPPING`. Orden estable: difs predecibles entre builds.
+Los 12 roles semánticos se traducen a nombres waybar vía `WAYBAR_MAPPING`. Orden estable: difs predecibles entre builds.
 
 ### 4.2 Wofi
 
