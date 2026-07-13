@@ -84,7 +84,7 @@ Sin texture maps, solo por color, brillo y contexto. La paleta canónica ya nomb
 | Fondo principal (`bg`) | Hierro fundido en frío | Negro azulado, sin calor, denso. La superficie que sostiene todo sin pedir nada. |
 | Panel elevado (`surface`) | Madera de roble sellada al aceite oscuro | Apenas un escalón más claro que el fondo. Calidez contenida — el único guiño cálido del sistema, y aún así oscuro. |
 | Superficie alternativa (`surface-alt`) | Cuero curtido y bruñido | Aparece en hover, en estados activos. Tiene textura implícita aunque no se vea: es lo que la mano del navegante toca más. |
-| Borde principal (`border`) | Acero forjado en frío | Ligeramente desaturado, tirando a gris azulado. El borde marca sin cortar; está ahí para delimitar, no para醒目. |
+| Borde principal (`border`) | Acero forjado en frío | Ligeramente desaturado, tirando a gris azulado. El borde marca sin cortar; está ahí para delimitar, no para llamar la atención. |
 | Acento principal (`accent`) | Hielo glaciar bajo luz oblicua | Azul brillante con cuerpo. No es luz de neón — es mineral: frío y denso aunque parezca translúcido. |
 | Acento secundario (`accent-soft`) | Nieve iluminada por amanecer | Más pálido, menos saturado. Sirve para amables, no para señalar. |
 | Texto principal (`text`) | Hueso blanco tallado | Ligeramente cálido para no quemar, pero sin ser cremoso. Como escritura sobre hueso o marfil. |
@@ -617,7 +617,7 @@ Si un componente ceremonial quiere usar una runa con intención, esta es la guí
 
 | Runa | Nombre | Significado | Uso sugerido |
 |---|---|---|---|
-| ᚠ | Fehu | Ganado,财富, abundancia | Splash de primer arranque (bienvenida) |
+| ᚠ | Fehu | Ganado, abundancia | Splash de primer arranque (bienvenida) |
 | ᚢ | Uruz | Fuerza, vitalidad | Estado "todo en orden" |
 | ᚦ | Thurisaz | Gigante, espina, protección | Indicador de seguridad / privacidad |
 | ᚨ | Ansuz | Dios, mensaje, comunicación | Input de texto / chat |

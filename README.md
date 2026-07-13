@@ -2,7 +2,9 @@
 
 > Sistema de escritorio Hyprland con identidad visual vikinga coherente, construido alrededor de un único generador de paleta que sincroniza todos los componentes del sistema desde una sola fuente de verdad.
 
-![Kitty + fastfetch demo](kitty_fastfetch_demo.png)
+![Kitty + fastfetch demo](docs/screenshots/kitty_fastfetch_demo.png)
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
@@ -416,9 +418,11 @@ npm test         # todos los tests deben pasar
 
 **Autor:** Lmz-23 ([@Lmz-23](https://github.com/Lmz-23))
 
-NordicOS es un proyecto personal de configuración estética. El código del build (`palette/build.js`, `palette/watch.js`, tests) se distribuye tal cual; el contenido visual (wallpapers, marcos ornamentales, runas) es obra original del autor.
+NordicOS es un proyecto personal de configuración estética. El código del build (`palette/build.js`, `palette/watch.js`, tests) se distribuye bajo los términos de la [Licencia MIT](LICENSE); el contenido visual (wallpapers, marcos ornamentales, runas) es obra original del autor.
 
 El Valknut, las runas Elder Futhark y los motivos nórdicos son símbolos culturales de uso libre; su inclusión en este proyecto es decorativa y referencial, sin afiliación a tradición religiosa o política alguna.
+
+Este proyecto está licenciado bajo [MIT](LICENSE). Puedes usar, modificar y distribuir el código libremente bajo los términos de esa licencia.
 
 ---
 
