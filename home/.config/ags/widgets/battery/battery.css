@@ -1,0 +1,39 @@
+/* NordicOS — battery widget CSS (Bloque B Fase 1).
+   ============================================================================
+   NOTA IMPORTANTE: Este archivo es SOLO DOCUMENTACIÓN/REFERENCIA.
+   El widget BatteryWidget.tsx usa estilos inline vía `css={...}` en JSX
+   (más simple, evita problema de imports CSS en ags 3.1.0 + evita generar
+   dependencia de bundled CSS).
+   ============================================================================
+   Tokens TEMPORALES hardcoded desde lib/theme-tokens.ts.
+   Fase 6 sustituirá por import desde theme.css generado por palette/build.js.
+*/
+
+.battery-frame {
+  background: #151c24;
+  border: 1px solid #3b556d;
+  border-radius: 4px;
+  padding: 0;
+}
+
+.battery-button {
+  padding: 0 10px;
+  min-height: 32px;
+  min-width: 64px;
+  background: transparent;
+  border: none;
+  color: #d4dde3;
+}
+
+.battery-button:hover {
+  background: #1a2332;
+}
+
+.battery-glyph {
+  color: #78c7ff;
+  font-size: 1.1em;
+}
+
+.battery-pct {
+  color: #d4dde3;
+}

@@ -53,29 +53,58 @@ Definidos en la constante `KITTY_EXTRAS` al inicio de `palette/build.js`. Sin co
 
 ```
 /home/lmz/nordicos/
-├── palette/
-│   ├── master.css              ← fuente única (editar para cambiar colores)
-│   ├── build.js                ← generador (lee master.css, escribe 7 destinos)
-│   ├── watch.js                ← watcher automático (chokidar + debounce 200ms)
-│   ├── preview.html            ← (ignorado en git) preview visual generado
-│   ├── README.md               ← documentación operativa del subsistema de paleta
-│   └── test/
-│       └── build.test.js       ← suite de tests (node:test, 1530 líneas)
-├── docs/
-│   ├── design-language.md      ← ADN visual: manifiesto, principios, anti-patrones
-│   ├── design-system.md        ← Especificación técnica: tokens, contratos, validaciones
-│   └── references/             ← Capturas canónicas y material de referencia
-├── assets/
-│   ├── wallpapers/             ← 10 fondos (drakkar, fiordos, runas, monolitos)
-│   └── ornaments/              ← Valknut y marcos ornamentales
-├── backups/                    ← (ignorado en git) snapshots automáticos por cambio
-├── node_modules/               ← (ignorado en git) única dependencia: chokidar 3.6
-├── STATE.md                    ← este archivo
-├── README.md                   ← documentación general del proyecto
-├── package.json                ← scripts: build, watch, preview, test
-├── package-lock.json
-└── .gitignore
+├── palette/                ← generador de paleta (master.css → 7 destinos)
+├── home/
+│   └── .config/            ← dotfiles user-maintained versionados
+│       ├── waybar/         (config.jsonc, style.css, *.sh, icons/, valknut.png)
+│       ├── hypr/           (hyprland.lua — mirror copy, sincronizado via bin/sync-tracking.sh)
+│       ├── kitty/          (kitty.conf)
+│       ├── wofi/           (config — style.css se regenera por build)
+│       ├── ags/            (shell.tsx, lib/*.ts, widgets/, assets/, package.json, tsconfig.json)
+│       ├── fastfetch/      (config.jsonc)
+│       └── dunst/          (.gitkeep — dunstrc se regenera por build)
+├── bin/
+│   └── sync-tracking.sh    ← pull/push para archivos híbridos (hyprland.lua)
+├── install.sh              ← restaura el escritorio en una PC nueva
+├── docs/                   ← design-language, design-system, references
+├── assets/                 ← wallpapers, ornaments
+├── backups/                ← (gitignored) snapshots automáticos del build
+├── STATE.md                ← este archivo
+├── README.md               ← documentación general
+├── package.json            ← scripts: build, watch, preview, test
+└── package-lock.json
 ```
+
+## Portabilidad entre PCs
+
+El repo ahora incluye todos los dotfiles necesarios para restaurar el escritorio vikingo completo en una PC nueva. Hay 3 estrategias distintas según la naturaleza del archivo:
+
+| Categoría | Estrategia | Ejemplos |
+|---|---|---|
+| **User-maintained, build NO toca** | Symlink `~/.config/X → home/.config/X` | waybar config+style, ags/, kitty.conf, wofi/config, fastfetch |
+| **Híbrido (user + generator markers)** | Mirror copy + sync manual via `bin/sync-tracking.sh` | hyprland.lua (los markers PALETTE/SHADOW se regeneran, el resto son keybinds/monitors del usuario) |
+| **Generado por build** | Real file en `~/.config/`, no versionado, regenerado on `npm run build` | themes/nordic.css, theme.conf, wofi style.css, dunstrc, theme-tokens-auto.ts |
+
+### Restore en una PC nueva
+
+```bash
+git clone https://github.com/Lmz-23/NordicOS.git ~/nordicos
+cd ~/nordicos
+./install.sh    # crea symlinks + sincroniza hyprland.lua + npm install + npm run build
+```
+
+El script es idempotente: si se corre múltiples veces sobre el mismo home, los symlinks pre-existentes apuntando al repo se preservan; los archivos reales diferentes se respaldan con timestamp antes de reemplazarse.
+
+### Sincronización de hyprland.lua
+
+Como `hyprland.lua` no puede ser symlink (el build hace atomic write y eso rompería symlinks), se sincroniza manualmente:
+
+```bash
+./bin/sync-tracking.sh pull   # después de clonar el repo, trae la última versión
+./bin/sync-tracking.sh push   # después de editar keybinds en ~/.config/, commitea al repo
+```
+
+Pull hace backup automático antes de sobrescribir (`~/.config/hypr/hyprland.lua.bak-sync-<ts>`).
 
 ## Workflow diario
 

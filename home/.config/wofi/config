@@ -1,0 +1,17 @@
+# NordicOS Wofi config
+width=235
+height=275
+location=top_left
+y=20
+x=20
+show=drun
+prompt=que quiere?
+filter_rate=100
+allow_markup=true
+no_actions=true
+halign=fill
+orientation=vertical
+content_halign=fill
+insensitive=true
+allow_images=true
+image_size=26

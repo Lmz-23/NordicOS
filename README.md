@@ -140,14 +140,22 @@ Cada `npm run build` ejecuta:
 git clone https://github.com/Lmz-23/NordicOS.git ~/nordicos
 cd ~/nordicos
 
-# 2. Instalar dependencias (única: chokidar para el watcher)
-npm install
+# 2. Ejecutar install.sh (crea symlinks + npm install + npm run build)
+./install.sh
+```
 
-# 3. Vincular los archivos de configuración a sus destinos en ~/.config/
-#    (ver tabla "Destinos generados" abajo para paths exactos)
+El script es idempotente y maneja tres categorías de archivos:
 
-# 4. Construir la paleta una vez
-npm run build
+- **Symlinks** (`waybar/config.jsonc`, `ags/*`, `kitty/kitty.conf`, etc.) → apuntando a `home/.config/` en el repo
+- **Mirror copy** (`hypr/hyprland.lua`) → sincronizado via `bin/sync-tracking.sh pull`
+- **Generados por build** (`themes/nordic.css`, `theme.conf`, `dunstrc`, etc.) → regenerados en cada `npm run build`
+
+Para recargar componentes después de editar:
+```bash
+systemctl --user reload waybar    # usa SIGUSR2 internamente
+hyprctl reload                    # bordes y sombras
+killall kitty && kitty            # nueva terminal con colores nuevos
+pkill dunst && dunst &            # notificaciones
 ```
 
 ### Destinos generados

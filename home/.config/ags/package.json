@@ -1,0 +1,13 @@
+{
+  "name": "nordicos-ags",
+  "version": "0.1.0",
+  "description": "NordicOS ags widgets — Bloque B",
+  "type": "module",
+  "scripts": {
+    "build": "ags bundle shell.tsx 'shell.js'",
+    "watch": "ags bundle --watch shell.tsx 'shell.js'",
+    "dev": "ags run shell.tsx",
+    "start": "ags run shell.tsx"
+  },
+  "private": true
+}
