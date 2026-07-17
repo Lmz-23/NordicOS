@@ -72,6 +72,8 @@ window#waybar > box {
 #idle_inhibitor,
 #tray,
 #custom-power,
+#custom-bluetooth,
+#custom-docker,
 #custom-music-prev,
 #custom-music-next,
 #custom-launcher-kitty,
@@ -246,27 +248,27 @@ window#waybar > box {
 #mpris {
     color: @text-muted;
     font-size: 12px;
-    padding: 0 8px;
-    margin: 0;
+    padding: 0 6px;
+    margin: 0 1px;
     background: transparent;
     border: none;
-    min-width: 0;
+    min-width: 18px;
 }
 #mpris:hover {
     color: @ice;
 }
 
 /* === F.1: PADDING/MARGIN UNIFORME — cluster derecho ===
-   Una sola regla aplica `padding: 0 6px; margin: 0;` a TODOS los módulos
-   del cluster derecho. Antes los valores vivían dispersos entre el bloque
-   "MÓDULOS INDIVIDUALES" (M4) y los bloques individuales de #tray, lo que
-   dejaba a #network sin padding explícito. Ahora todos comparten la misma
-   geometría para alinear visualmente los iconos. */
+   Una sola regla aplica `padding: 0 6px;` a los módulos del cluster derecho.
+   El margen y el ancho mínimo se igualan al estándar de los launchers en la
+   regla siguiente; #tray conserva su geometría interna propia. */
 #idle_inhibitor, #custom-idle,
 #pulseaudio,
 #custom-music-prev, #custom-music-next,
 #network,
 #power-profiles-daemon,
+#custom-bluetooth,
+#custom-docker,
 #cpu, #memory,
 #backlight,
 #battery,
@@ -274,6 +276,24 @@ window#waybar > box {
 #custom-power {
     padding: 0 6px;
     margin: 0;
+}
+
+/* Estándar de módulos: igual que los launchers (padding 0 6px,
+   margen lateral 1px y ancho mínimo de 18px). El tray queda excluido
+   porque Waybar administra sus iconos y su spacing de forma independiente. */
+#idle_inhibitor, #custom-idle,
+#pulseaudio,
+#custom-music-prev, #custom-music-next,
+#network,
+#power-profiles-daemon,
+#custom-bluetooth,
+#custom-docker,
+#cpu, #memory,
+#backlight,
+#battery,
+#custom-power {
+    margin: 0 1px;
+    min-width: 18px;
 }
 
 /* === F.2: TRANSITIONS para los módulos del cluster derecho ===
@@ -287,6 +307,8 @@ window#waybar > box {
 #custom-music-next,
 #network,
 #power-profiles-daemon,
+#custom-bluetooth,
+#custom-docker,
 #cpu,
 #memory,
 #backlight,
@@ -306,6 +328,8 @@ window#waybar > box {
 #custom-music-next:hover,
 #network:hover,
 #power-profiles-daemon:hover,
+#custom-bluetooth:hover,
+#custom-docker:hover,
 #cpu:hover,
 #memory:hover,
 #backlight:hover,

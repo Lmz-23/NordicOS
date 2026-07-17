@@ -34,6 +34,8 @@
         "custom/idle",
         "pulseaudio",
         "network",
+        "custom/docker",
+        "custom/bluetooth",
         "power-profiles-daemon",
         "cpu",
         "memory",
@@ -287,23 +289,66 @@
         "on-click": "ags request toggle-all nordicos-network",
         "on-click-middle": "nm-connection-editor"
     },
-"pulseaudio": {
+"custom/bluetooth": {
+        // Estado via bluetoothctl; click toggle blueman-manager (estilo pavucontrol).
+        // on-click-middle alterna power on/off via rfkill.
+        // Reemplaza al blueman-tray externo (eliminado de hyprland autostart).
+        "exec": "state=$(bluetoothctl show 2>/dev/null | grep -q 'Powered: yes' && echo on || echo off); printf '{\"text\":\"%s\",\"alt\":\"%s\",\"tooltip\":\"Bluetooth %s\"}\\n' \"$state\" \"$state\" \"$(echo $state | tr a-z A-Z)\"",
+        "interval": 5,
+        "return-type": "json",
+        "format": "{icon}",
+        "format-icons": {
+            "on": "󰂯",    // md-bluetooth (U+F00AF) — Nerd Font MD
+            "off": "󰂲"   // md-bluetooth_off (U+F00B2)
+        },
+        "tooltip": true,
+        "tooltip-format": "<big>Bluetooth</big>\n  Estado: {text}\n  · Click: blueman-manager (toggle)\n  · Middle: power on/off",
+        "on-click": "sh -c 'pgrep -x blueman-manager > /dev/null && pkill -x blueman-manager || (blueman-manager >/dev/null 2>&1 &)'",
+        "on-click-middle": "sh -c 'rfkill list bluetooth | grep -q \"Soft blocked: yes\" && rfkill unblock bluetooth || rfkill block bluetooth'"
+    },
+    "custom/docker": {
+        // Estado via docker ps --format; click toggle kitty con watch docker ps.
+        // No hay TUI docker instalado (lazydocker/ctop/dive), fallback a live `docker ps -a`.
+        // Lógica dividida en dos scripts (mismo patrón que idle_toggle.sh / battery_detail.sh):
+        //   · docker_status.sh → emite JSON {text, alt, tooltip} (5s poll)
+        //   · docker_toggle.sh → abre/cierra ventana kitty (PID file en $XDG_RUNTIME_DIR)
+        // El tooltip se construye con newlines reales (\n) que waybar renderiza
+        // como saltos de línea en el tooltip flotante (la versión anterior
+        // colapsaba los \n con `tr '\n' ' '` y la lista quedaba en una sola línea).
+        // Glyphs Nerd Font 3.4.0:
+        //   · default → linux-docker (U+F308, BMP PUA) — la ballena clásica con containers
+        //   · "0"     → md-cube_off   (U+F141C, supp PUA) — cubo apagado
+        "exec": "~/.config/waybar/docker_status.sh",
+        "interval": 5,
+        "return-type": "json",
+        "format": "{icon} {text}",
+        "format-icons": {
+            "0": "󱐜",          // md-cube_off   (U+F141C) — 0 contenedores corriendo
+            "default": ""    // linux-docker  (U+F308)  — ballena con containers
+        },
+        "tooltip": true,
+        // (tooltip-format deshabilitado) — waybar v0.15.0 no soporta {tooltip} como placeholder
+        // (doc oficial solo lista {}, {text}, {alt}, {percentage}, {icon}). Sin tooltip-format,
+        // waybar usa el campo "tooltip" del JSON del script (multilínea OK).
+        "on-click": "~/.config/waybar/docker_toggle.sh"
+    },
+    "pulseaudio": {
         "format": "{icon}",                                          // sin porcentaje
         "format-bluetooth": "{icon} ",
         "format-bluetooth-muted": " {icon} ",
-        "format-muted": "",
+        "format-muted": " ",
         "format-source": " ",                                        // micro glyph fijo sin porcentaje
         "format-source-muted": "",
         "format-icons": {
             "headphone": "",                                         // fa-solid_headphones (U=F025)
             "hands-free": "",                                        // fa-solid_phone (U+F095)
-            "headset": "e",                                          // md-headset (U=F590)
+            "headset": "󰋎",                                          // md-headset (U+F02CE; presente en JetBrainsMono NF)
             "phone": "",                                             // fa-solid_phone (U+F095)
             "portable": "",                                          // fa-solid_volume-low (U+F027)
             "car": "",                                               // fa-solid_car (U+F1B9)
             "default": ["", "", ""]                                  // fa-solid_volume-off/low/high (U+F026/027/028)
         },
-        "on-click": "pavucontrol"
+        "on-click": "sh -c 'pgrep -x pavucontrol > /dev/null && pkill -x pavucontrol || (pavucontrol >/dev/null 2>&1 &)'"
     },
     "custom/power": {
         "format" : "⏻ ",
