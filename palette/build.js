@@ -1851,7 +1851,12 @@ async function main() {
     const wofiStyleFile    = path.join(HOME, '.config', 'wofi', 'style.css');
     const hyprlandConfFile = path.join(HOME, '.config', 'hypr', 'hyprland.lua');
     const dunstrcFile      = path.join(HOME, '.config', 'dunst', 'dunstrc');
-    const agsThemeFile     = path.join(HOME, '.config', 'ags', 'lib', 'theme-tokens-auto.ts');
+    // FIX 2026-07-16: ahora vive en repo (gestionado via home/.config/ags/lib symlink)
+    //   Antes: escribía a HOME/.config/ags/lib/theme-tokens-auto.ts
+    //   Problema: los widgets en repo importaban '../../lib/theme-tokens-auto' y
+    //   resolvían desde la ubicación real en repo → no encontraban el archivo.
+    //   Solución: el build escribe al repo, la home lo ve via symlink.
+    const agsThemeFile     = path.join(PROJECT_ROOT, 'home', '.config', 'ags', 'lib', 'theme-tokens-auto.ts');
 
     // --- 6. Dry-run branch -----------------------------------------------
     // For each component we either show its would-be content (full file or

@@ -57,6 +57,7 @@ declare -a TRACKED=(
   "ags/lib/network-source.ts"
   "ags/lib/scale.ts"
   "ags/lib/system-source.ts"
+  "ags/lib/theme-tokens-auto.ts"
   "ags/widgets"
   "ags/assets"
   "fastfetch/config.jsonc"
