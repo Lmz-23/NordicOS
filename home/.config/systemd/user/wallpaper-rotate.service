@@ -1,0 +1,8 @@
+[Unit]
+Description=Rotación de wallpapers NordicOS
+After=hyprpaper.service
+PartOf=hyprpaper.service
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/wallpaper-rotate.sh

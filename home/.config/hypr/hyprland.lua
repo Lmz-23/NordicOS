@@ -57,7 +57,9 @@ hl.on("hyprland.start", function ()
 
   -- waybar sigue en autostart; hyprpaper ahora lo maneja systemd (hyprpaper.service)
   hl.exec_cmd("waybar")
-  hl.exec_cmd("blueman-applet &")
+  -- hl.exec_cmd("blueman-applet &")  -- 2026-07-17: removido por fix bluetooth. El waybar custom/bluetooth
+  -- toma el lugar del tray icon PNG de blueman-tray. blueman-manager
+  -- sigue funcionando standalone (registra su propio agent en dbus).
   hl.exec_cmd("playerctld")
   -- ags también lo maneja systemd (ags.service) para evitar doble inicio
   -- hl.exec_cmd("ags run /home/lmz/.config/ags/shell.tsx")

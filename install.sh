@@ -61,6 +61,9 @@ declare -a TRACKED=(
   "ags/widgets"
   "ags/assets"
   "fastfetch/config.jsonc"
+  "systemd/user/wallpaper-rotate.timer"
+  "systemd/user/wallpaper-rotate.service"
+  "autostart/blueman.desktop"
 )
 
 link_file() {
