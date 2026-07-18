@@ -1,0 +1,383 @@
+// -*- mode: jsonc -*-
+{
+    // "layer": "top", // Waybar at top layer
+    // "position": "bottom", // Waybar position (top|bottom|left|right)
+    "height": 36,
+    "width": "100%",
+    "spacing": 6,
+    "scale": 1,   // Global scale factor: 1 = native resolution
+    // Floating-bar insets (ref_omar style): margin-top lifts the bar off the
+    // screen edge so border-radius reads as a soft pill instead of a strip.
+    "margin-top": 6,
+    "margin-left": 8,
+    "margin-right": 8,
+    // "width": 1920, // Let waybar auto-detect width from monitor
+    // Choose the order of the modules
+    "modules-left": [
+        "image",
+        "custom/workspaces",
+        "custom/launcher-kitty",
+        "custom/launcher-brave",
+        "custom/launcher-dolphin",
+        "custom/launcher-code",
+        "custom/launcher-spotify",
+        "custom/launcher-polymc",
+        "custom/launcher-discord",
+        "custom/launcher-steam"
+    ],
+    "modules-center": [
+        "custom/clock-ceremonial"
+    ],
+    "modules-right": [
+        "mpris",
+        "custom/music-prev",
+        "custom/music-next",
+        "custom/idle",
+        "pulseaudio",
+        "network",
+        "custom/docker",
+        "custom/bluetooth",
+        "power-profiles-daemon",
+        "cpu",
+        "memory",
+        "backlight",
+        "battery",
+        "tray",
+        "custom/power"
+    ],
+    // Modules configuration
+    "image": {
+        "path": "/home/lmz/.config/waybar/valknut.png",
+        "size": 37,
+        "interval": 3600
+    },
+    // === CUSTOM/WORKSPACES — Hyprland workspaces indicator ===
+    // Posición: cluster izquierdo, entre el valknut (image) y los launchers.
+    // Glyph: md-pickaxe (U+F08B7) — pico de minero, Nordic/craft theme
+    // (herrería vikinga / taller). Coherente con la estética NordicOS.
+    //   · text    = total de workspaces activos (script).
+    //   · alt     = idem (el script emite el mismo número como "alt",
+    //               y waybar resuelve format-icons por "default").
+    //   · tooltip = detalle de cada WS + ventanas del activo (script).
+    // Tooltip se construye en el script con saltos de línea literales
+    // (waybar los respeta; mismo patrón que docker_status.sh).
+    "custom/workspaces": {
+        "exec": "~/.config/waybar/workspace_status.sh",
+        "interval": 2,
+        "return-type": "json",
+        "format": "{icon} {text}",
+        "format-icons": {
+            "default": "󰢷"      // md-pickaxe (U+F08B7) — F3 B0 A2 B7
+        },
+        "tooltip": true,
+        // tooltip-format deshabilitado: waybar v0.15.0 no soporta {tooltip}
+        // como placeholder (doc oficial lista {}, {text}, {alt}, {icon}).
+        // Sin tooltip-format, waybar usa el campo "tooltip" del JSON script.
+        "on-click": "hyprctl dispatch cyclenext"  // cycle al siguiente WS activo
+    },
+    // === APP LAUNCHERS (replaces hyprland/workspaces) ===
+    // Custom launchers with Nerd Font glyphs (terminal/chrome/folder/cod-simple).
+    // JetBrainsMono Nerd Font is the waybar primary font, so PUA glyphs render.
+    // on-click launches the app; tooltip shows friendly label.
+    "custom/launcher-kitty": {
+        "format": "<span size='large'></span>",
+        "on-click": "kitty",
+        "tooltip": true,
+        "tooltip-format": "Terminal (Kitty)\n  Click → launch kitty"
+    },
+    "custom/launcher-brave": {
+        "format": "<span size='large'></span>",
+        "on-click": "brave",
+        "tooltip": true,
+        "tooltip-format": "Browser (Brave)\n  Click → launch brave"
+    },
+    "custom/launcher-dolphin": {
+        "format": "<span size='large'></span>",
+        "on-click": "dolphin",
+        "tooltip": true,
+        "tooltip-format": "Files (Dolphin)\n  Click → launch dolphin"
+    },
+    "custom/launcher-code": {
+        "format": "<span size='large'></span>",
+        "on-click": "code",
+        "tooltip": true,
+        "tooltip-format": "Editor (VS Code)\n  Click → launch code"
+    },
+    "custom/launcher-spotify": {
+        "format": "<span size='large'></span>",
+        "on-click": "spotify",
+        "tooltip": true,
+        "tooltip-format": "Spotify\n  Click → launch spotify"
+    },
+    "custom/launcher-polymc": {
+        "format": "<span size='large'>󰍳</span>",
+        "on-click": "polymc",
+        "tooltip": true,
+        "tooltip-format": "PolyMC (Minecraft)\n  Click → launch polymc"
+    },
+    "custom/launcher-discord": {
+        "format": "<span size='large'></span>",
+        "on-click": "discord",
+        "tooltip": true,
+        "tooltip-format": "Discord\n  Click → launch discord"
+    },
+    "custom/launcher-steam": {
+        "format": "<span size='large'></span>",
+        "on-click": "steam",
+        "tooltip": true,
+        "tooltip-format": "Steam\n  Click → launch steam"
+    },
+    "mpris": {
+        "player": "playerctld",
+        "ignored-players": ["firefox"],
+        "format": "{player_icon}  {title}",
+        "format-paused": "{status_icon}  <i>{title}</i>",
+        "format-stopped": "{status_icon}  (no media)",
+        "format-playing": "{player_icon}  {title}",
+        "player-icons": {
+            "default": "",
+            "spotify": "",
+            "brave": "",
+            "mpv": "",
+            "vlc": ""
+        },
+        "status-icons": {
+            "playing": "",
+            "paused": "",
+            "stopped": ""
+        },
+        "artist-len": 15,
+        "title-len": 18,
+        "dynamic-len": 18,
+        "max-length": 28,
+        "tooltip": true,
+        "tooltip-format": "<big><b>{title}</b></big>\n<span color='#a0d4ff'>{artist}</span>\n<span size='smaller'>{album}</span>\n\n{status_icon} {status}  {position}/{length}",
+        "on-click": "playerctl play-pause",
+        "on-click-middle": "playerctl previous",
+        "on-click-right": "playerctl next"
+    },
+    // Playback controls (visible in the bar; click → playerctl action).
+    // Unicode ⏮ / ▶ / ⏭ are not present in JetBrainsMono Nerd Font, so we use
+    // the PUA equivalents (already used by the rest of the bar: network, battery…).
+    "custom/music-prev": {
+        "exec": "true",
+        "format": "",
+        "on-click": "playerctl previous",
+        "tooltip-format": "Previous (playerctl previous)"
+    },
+    "custom/music-next": {
+        "exec": "true",
+        "format": "",
+        "on-click": "playerctl next",
+        "tooltip-format": "Next (playerctl next)"
+    },
+    "mpd": {
+        "format": "{stateIcon} {consumeIcon}{randomIcon}{repeatIcon}{singleIcon}{artist} - {album} - {title} ({elapsedTime:%M:%S}/{totalTime:%M:%S}) ⨨{songPosition}|{queueLength}⨩ {volume}% ",
+        "format-disconnected": "Disconnected ",
+        "format-stopped": "{consumeIcon}{randomIcon}{repeatIcon}{singleIcon}Stopped ",
+        "unknown-tag": "N/A",
+        "interval": 5,
+        "consume-icons": {
+            "on": " "
+        },
+        "random-icons": {
+            "off": "<span color=\"#b84c4c\"></span> ",
+            "on": " "
+        },
+        "repeat-icons": {
+            "on": " "
+        },
+        "single-icons": {
+            "on": "1"
+        },
+        "state-icons": {
+            "paused": "",
+            "playing": ""
+        },
+        "tooltip-format": "MPD (connected)",
+        "tooltip-format-disconnected": "MPD (disconnected)"
+    },
+"custom/idle": {
+    // Custom idle — script returns JSON {"state":"activated|deactivated"}.
+    // Only counts our NordicOS Waybar systemd-inhibit (not NetworkManager/UPower).
+    "exec": "~/.config/waybar/idle_toggle.sh status",
+    "on-click": "~/.config/waybar/idle_toggle.sh toggle",
+    "interval": 2,
+    "return-type": "json",
+    "format": "{icon}",
+    "format-icons": {
+        "activated": "",     // fa-eye-slash (U+F070) — inhibido
+        "deactivated": ""    // fa-eye (U+F06E) — normal
+    },
+    "tooltip-format-activated": "Idle inhibitor ACTIVO\n  sistema NO se apaga por inactividad\n  click → desactivar",
+    "tooltip-format-deactivated": "Idle inhibitor INACTIVO\n  sistema se apaga por inactividad\n  click → activar"
+},
+    "tray": {
+        "spacing": 10
+    },
+    "custom/clock-ceremonial": {
+        // F.3: Sustituye al módulo nativo `clock` porque waybar ignora el
+        // locale del sistema. Aquí forzamos LC_ALL=es_CO.UTF-8 para que
+        // %A/%B salgan en español ("domingo 12 de julio").
+        //
+        // Comportamiento:
+        //   · Default (exec, refresca cada 30s): HH:MM
+        //   · Click: cycle a exec-alt (fecha completa ES) + abre calendar AGS
+        //   · format-alt no acepta exec, así que el "alt" se hace con exec-alt
+        //   · tooltip muestra tanto la hora como la fecha
+        "exec": "LC_ALL=es_CO.UTF-8 date +'%H:%M'",
+        "exec-alt": "LC_ALL=es_CO.UTF-8 date +'%A %d de %B'",
+        "interval": 30,
+        "format": "{}",
+        "format-alt": "{}",
+        "on-click": "ags request toggle-all nordicos-calendar",
+        "tooltip": true,
+        "tooltip-format": "<big>{}</big>"
+    },
+    "cpu": {
+        "interval": 10,
+        "format": "{icon}",                                          // icono fijo de tarjeta hardware (sin porcentaje)
+        "format-icons": {
+            "default": ""                                            // fa-desktop (U+F108) monitor/computador clásico -- U+F2DC era fa-snowflake_o en JetBrainsMono NF
+        },
+        "tooltip": true,
+        "tooltip-format": "<big>CPU {usage}%</big>\n<span color='#a0d4ff' size='smaller'>Click: open SystemWidget</span>",
+        "on-click": "ags request toggle-all nordicos-system"
+    },
+"memory": {
+        "interval": 30,
+        "format": "{icon}",                                          // icono fijo de base de datos (sin porcentaje)
+        "format-icons": {
+            "default": ""                                            // fa-database (U+F7C0)
+        },
+        "tooltip-format": "<big>RAM {percentage}%</big>\n<span color='#a0d4ff' size='smaller'>{used:0.1f}G / {total:0.1f}G</span>"
+    },
+"backlight": {
+        // Bugfix: antes el on-click disparaba nordicos-system; al ser brillo
+        // un control fino, click quedaba ambiguo. El control real es scroll.
+        // Sin on-click → click queda libre (no consume interacción accidental).
+        "device": "intel_backlight",
+        "format": "{icon}",                                          // sol fijo (sin porcentaje)
+        "format-icons": {
+            "default": ""                                            // fa-solid_sun (U+F185) — sol fijo, sin variación por nivel
+        },
+        "tooltip-format": "<big>Brillo {percent}%</big>",
+        "on-scroll-up": "brightnessctl set +5%",
+        "on-scroll-down": "brightnessctl set 5%-",
+        "smooth-scrolling-threshold": 5
+    },
+    "battery": {
+        "tooltip": true,
+        "tooltip-format": "<big>{capacity}%</big>\n<span color='#a0d4ff'>{time}</span> remaining",
+        "on-click": "ags request toggle-all nordicos-battery",
+        "on-click-middle": "~/.config/waybar/battery_detail.sh dialog",
+        "states": {
+            "warning": 30,
+            "critical": 15
+        },
+        "format": "{icon}",
+        "format-full": "{icon}",
+        "format-charging": "{icon} ",
+        "format-plugged": "{icon} ",
+        "format-alt": "{icon}",
+        "format-icons": ["", "", "", "", ""]
+    },
+"power-profiles-daemon": {
+      "format": "{icon}",                                            // solo icono (sin porcentaje)
+      "tooltip-format": "Power profile: {profile}\nDriver: {driver}",
+      "tooltip": true,
+      "format-icons": {
+        "default": "",                                              // nf-md-flash (U+F0E7) rayo neutro
+        "performance": "",                                          // fa-solid_bolt (U=F0E7) rayo
+        "balanced": "",                                             // fa-solid_battery_half (U+F242) batería media
+        "power-saver": ""                                           // fa-solid_leaf (U+F06C) hoja
+      }
+    },
+    "network": {
+        // Glyph wifi clásico fa-wifi (U+F1EB) — más reconocible que las
+        // barras de señal nf-md-wifi_strength_*. Glyph fijo: el tooltip
+        // muestra intensidad/ESSID cuando hace falta detalle.
+        "format-icons": {
+            "wifi": "",                                              // fa-wifi (U+F1EB) — siempre el mismo glyph
+            "ethernet": "",
+            "disconnected": ""
+        },
+        "format": "{icon}",
+        "format-wifi": "{icon}",
+        "format-ethernet": "{icon}",
+        "format-disconnected": "{icon}",
+        "format-linked": "{icon}",
+        "tooltip-format": "{ifname}: {essid} ({signalStrength}%)",
+        "tooltip-format-wifi": "{essid} ({signalStrength}%)  ·  {ifname}",
+        "tooltip-format-ethernet": "{ifname} (ethernet)",
+        "tooltip-format-disconnected": "Sin conexión",
+        "on-click": "ags request toggle-all nordicos-network",
+        "on-click-middle": "nm-connection-editor"
+    },
+"custom/bluetooth": {
+        // Estado via bluetoothctl; click toggle blueman-manager (estilo pavucontrol).
+        // on-click-middle alterna power on/off via rfkill.
+        // Reemplaza al blueman-tray externo (eliminado de hyprland autostart).
+        "exec": "state=$(bluetoothctl show 2>/dev/null | grep -q 'Powered: yes' && echo on || echo off); printf '{\"text\":\"%s\",\"alt\":\"%s\",\"tooltip\":\"Bluetooth %s\"}\\n' \"$state\" \"$state\" \"$(echo $state | tr a-z A-Z)\"",
+        "interval": 5,
+        "return-type": "json",
+        "format": "{icon}",
+        "format-icons": {
+            "on": "󰂯",    // md-bluetooth (U+F00AF) — Nerd Font MD
+            "off": "󰂲"   // md-bluetooth_off (U+F00B2)
+        },
+        "tooltip": true,
+        "tooltip-format": "<big>Bluetooth</big>\n  Estado: {text}\n  · Click: blueman-manager (toggle)\n  · Middle: power on/off",
+        "on-click": "sh -c 'pgrep -x blueman-manager > /dev/null && pkill -x blueman-manager || (blueman-manager >/dev/null 2>&1 &)'",
+        "on-click-middle": "sh -c 'rfkill list bluetooth | grep -q \"Soft blocked: yes\" && rfkill unblock bluetooth || rfkill block bluetooth'"
+    },
+    "custom/docker": {
+        // Estado via docker ps --format; click toggle kitty con watch docker ps.
+        // No hay TUI docker instalado (lazydocker/ctop/dive), fallback a live `docker ps -a`.
+        // Lógica dividida en dos scripts (mismo patrón que idle_toggle.sh / battery_detail.sh):
+        //   · docker_status.sh → emite JSON {text, alt, tooltip} (5s poll)
+        //   · docker_toggle.sh → abre/cierra ventana kitty (PID file en $XDG_RUNTIME_DIR)
+        // El tooltip se construye con newlines reales (\n) que waybar renderiza
+        // como saltos de línea en el tooltip flotante (la versión anterior
+        // colapsaba los \n con `tr '\n' ' '` y la lista quedaba en una sola línea).
+        // Glyphs Nerd Font 3.4.0:
+        //   · default → linux-docker (U+F308, BMP PUA) — la ballena clásica con containers
+        //   · "0"     → md-cube_off   (U+F141C, supp PUA) — cubo apagado
+        "exec": "~/.config/waybar/docker_status.sh",
+        "interval": 5,
+        "return-type": "json",
+        "format": "{icon} {text}",
+        "format-icons": {
+            "0": "󱐜",          // md-cube_off   (U+F141C) — 0 contenedores corriendo
+            "default": ""    // linux-docker  (U+F308)  — ballena con containers
+        },
+        "tooltip": true,
+        // (tooltip-format deshabilitado) — waybar v0.15.0 no soporta {tooltip} como placeholder
+        // (doc oficial solo lista {}, {text}, {alt}, {percentage}, {icon}). Sin tooltip-format,
+        // waybar usa el campo "tooltip" del JSON del script (multilínea OK).
+        "on-click": "~/.config/waybar/docker_toggle.sh"
+    },
+    "pulseaudio": {
+        "format": "{icon}",                                          // sin porcentaje
+        "format-bluetooth": "{icon} ",
+        "format-bluetooth-muted": " {icon} ",
+        "format-muted": " ",
+        "format-source": " ",                                        // micro glyph fijo sin porcentaje
+        "format-source-muted": "",
+        "format-icons": {
+            "headphone": "",                                         // fa-solid_headphones (U=F025)
+            "hands-free": "",                                        // fa-solid_phone (U+F095)
+            "headset": "󰋎",                                          // md-headset (U+F02CE; presente en JetBrainsMono NF)
+            "phone": "",                                             // fa-solid_phone (U+F095)
+            "portable": "",                                          // fa-solid_volume-low (U+F027)
+            "car": "",                                               // fa-solid_car (U+F1B9)
+            "default": ["", "", ""]                                  // fa-solid_volume-off/low/high (U+F026/027/028)
+        },
+        "on-click": "sh -c 'pgrep -x pavucontrol > /dev/null && pkill -x pavucontrol || (pavucontrol >/dev/null 2>&1 &)'"
+    },
+    "custom/power": {
+        "format" : "⏻ ",
+		"tooltip": false,
+		"on-click": "$HOME/.config/waybar/power_menu.sh"
+		}
+}

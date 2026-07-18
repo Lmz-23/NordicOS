@@ -1,0 +1,386 @@
+@import "themes/nordic.css";
+
+/* =============================================================================
+   NordicOS Waybar — Puesto de mando vikingo moderno
+   ============================================================================= */
+
+* {
+    font-family: "JetBrainsMono Nerd Font", "Symbols Nerd Font", FontAwesome, Roboto, Helvetica, Arial, sans-serif;
+    font-size: 13px;
+    border: none;
+    border-radius: 0;
+    transition-duration: 0.4s;
+    transition-timing-function: ease-out;
+}
+
+/* === BARRA PRINCIPAL — flotante con bordes circulares (ref_omar) ===
+   Margin-top/margin-left/margin-right viven en config.jsonc (layer-shell
+   margins); aquí sólo damos la forma. Se elimina border-bottom porque los
+   bordes curvos ya delimitan la barra. */
+window#waybar {
+    background: alpha(#000000, 0.82);
+    color: @text;
+    border: 1px solid alpha(@border, 0.45);
+    border-radius: 18px;
+}
+
+window#waybar.hidden {
+    opacity: 0.15;
+}
+
+/* === CONTENEDOR PRINCIPAL — flex horizontal === */
+window#waybar > box {
+    /* Font smoothing para todo el contenido */
+}
+
+/* === GRUPOS DE MÓDULOS === */
+/* Padding interno del waybar (unified2): subido de 8px → 12px para que
+   los launchers y módulos respiren mejor con la barra flotante.
+   Los iconos individuales aportan su propio padding interno (6–14px). */
+.modules-left,
+.modules-center,
+.modules-right {
+    margin: 0 12px;
+}
+
+/* === GLOW CENTRAL — "globo de luz" alrededor del clock ===
+   unified2 C3: resplandor cyan @ice NordicOS difuso, sin tocar el texto
+   del clock. box-shadow + border-radius para que el glow respire como
+   una mancha de luz sobre el fondo negro translúcido de la barra.
+   Alpha 0.32 para que el glow sea perceptible sin saturar.
+   M6 polish: spread 28→20px para que el resplandor se sienta más ceñido
+   al clock y no invada los launchers. */
+.modules-center {
+    box-shadow: 0 0 20px 2px alpha(@ice, 0.32);
+    border-radius: 24px;
+}
+
+/* === CRÍTICO: Permite que los hijos se encojan ===
+   Sin esto, flex items no se comprimen más allá de su contenido.
+   Es un quirk específico de GTK CSS flexbox.
+   NOTA: #clock ya no está en la barra (sustituido por #custom-clock-ceremonial).
+         #temperature no está en el bar actual. */
+#workspaces,
+#window,
+#battery,
+#cpu,
+#memory,
+#network,
+#pulseaudio,
+#backlight,
+#power-profiles-daemon,
+#idle_inhibitor,
+#tray,
+#custom-power,
+#custom-bluetooth,
+#custom-docker,
+#custom-music-prev,
+#custom-music-next,
+#custom-workspaces,
+#custom-launcher-kitty,
+#custom-launcher-brave,
+#custom-launcher-dolphin,
+#custom-launcher-code,
+#custom-launcher-spotify,
+#custom-launcher-polymc,
+#custom-launcher-discord,
+#custom-launcher-steam,
+#mpris,
+#custom-clock-ceremonial,
+#image {
+    min-width: 0;
+    min-height: 0;
+}
+
+/* === APP LAUNCHERS (replaces workspaces) — cohesivo sin caja === */
+/* Cohesivo con el resto de la barra: sin mini-marco, solo padding.
+   Se mantiene el color cyan @ice NordicOS. Hover: realce del accent. */
+#custom-launcher-kitty,
+#custom-launcher-brave,
+#custom-launcher-dolphin,
+#custom-launcher-code,
+#custom-launcher-spotify,
+#custom-launcher-polymc,
+#custom-launcher-discord,
+#custom-launcher-steam {
+    background-color: transparent;
+    color: @ice;
+    border: none;
+    padding: 0 6px;
+    margin: 0 1px;
+    min-width: 18px;
+    font-size: 13px;
+    /* Se pueden comprimir si la barra lo requiere */
+    transition: all 0.3s ease-out;
+}
+
+#custom-launcher-kitty:hover,
+#custom-launcher-brave:hover,
+#custom-launcher-dolphin:hover,
+#custom-launcher-code:hover,
+#custom-launcher-spotify:hover,
+#custom-launcher-polymc:hover,
+#custom-launcher-discord:hover,
+#custom-launcher-steam:hover {
+    background-color: transparent;
+    color: @ice-soft;
+}
+
+#custom-launcher-kitty:active,
+#custom-launcher-brave:active,
+#custom-launcher-dolphin:active,
+#custom-launcher-code:active,
+#custom-launcher-spotify:active,
+#custom-launcher-polymc:active,
+#custom-launcher-discord:active,
+#custom-launcher-steam:active {
+    background-color: alpha(@ice, 0.22);
+    color: @ice-soft;
+}
+
+/* === CUSTOM/WORKSPACES — Hyprland workspace indicator ===
+   Mismo lenguaje visual que los launchers (color @ice, padding uniforme,
+   hover @ice-soft) para mantener la cohesión del cluster izquierdo.
+   Glyph md-pickaxe (U+F08B7) — pico de minero/herrería, Nordic/craft.
+   Sin caja: solo padding lateral y un toque de @ice en el active. */
+#custom-workspaces {
+    background-color: transparent;
+    color: @ice;
+    border: none;
+    padding: 0 6px;
+    margin: 0 1px;
+    min-width: 18px;
+    font-size: 13px;
+    transition: all 0.3s ease-out;
+}
+
+#custom-workspaces:hover {
+    background-color: transparent;
+    color: @ice-soft;
+}
+
+#custom-workspaces:active {
+    background-color: alpha(@ice, 0.22);
+    color: @ice-soft;
+}
+
+/* === MÓDULOS INDIVIDUALES — cohesivos sin caja (P0 ref_omar) === */
+/* Estilo cohesivo: módulos juntos, separados solo por padding.
+   Se mantienen los colores NordicOS (cyan @ice) — solo se quita la caja.
+   El padding/margin uniforme vive en una regla aparte (F.1) para no
+   dispersar valores entre bloques.
+   NOTA: #clock ya no está en la barra (sustituido por #custom-clock-ceremonial).
+         #temperature no se incluye en el bar actual. */
+#battery,
+#cpu,
+#memory,
+#pulseaudio,
+#backlight,
+#power-profiles-daemon,
+#idle_inhibitor,
+#custom-power,
+#custom-idle,
+#custom-music-prev,
+#custom-music-next {
+    background: transparent;
+    color: @ice;
+    border: none;
+    border-radius: 0;
+    min-width: 0;
+}
+
+/* === WINDOW (título de ventana) === */
+#window {
+    color: @text-muted;
+    font-size: 11px;
+    margin: 0 6px;
+    /* No crece, solo ocupa lo que necesita */
+    min-width: 0;
+}
+
+/* === HOVER ESTADOS — sutil, sin caja === */
+/* NOTA: el glow cyan (F.2) más abajo sobreescribe text-shadow para los
+   módulos del cluster derecho. Este bloque mantiene color/base para
+   los que no entran en el glow (#mpris hereda su propio hover abajo). */
+#battery:hover,
+#cpu:hover,
+#memory:hover,
+#pulseaudio:hover,
+#backlight:hover,
+#power-profiles-daemon:hover,
+#idle_inhibitor:hover,
+#custom-power:hover {
+    color: @ice-soft;
+    background: transparent;
+}
+
+/* === ESTADOS DE COLOR (sin caja, solo cambian el color del texto) === */
+#battery.warning {
+    color: @warning;
+}
+
+#battery.critical,
+#temperature.critical {
+    color: @danger;
+}
+
+#cpu.warning,
+#memory.warning {
+    color: @warning;
+}
+
+/* === TRAY ===
+   Padding/margin uniformado por la regla F.1 (cluster derecho).
+   Aquí solo preservamos background/border. */
+#tray {
+    background: transparent;
+    border: none;
+}
+
+#tray > .passive {
+    -gtk-icon-effect: dim;
+}
+
+#tray > .needs-attention {
+    -gtk-icon-effect: highlight;
+    color: @warning;
+}
+
+/* === POWER BUTTON — sin caja, color peligro al hover === */
+/* M5 polish: sin font-weight bold; el botón sólo cambia a @danger en hover. */
+#custom-power {
+    font-weight: normal;
+}
+
+#custom-power:hover {
+    color: @danger;
+    font-weight: normal;
+}
+
+/* === IMAGE MODULE — Valknut logo === */
+/* Replaces the old custom-logo CSS (kept the same colour/weight/padding
+   so the new image module sits identically in the bar). M3 polish:
+   margin-right 10px para separar el logo de los launchers. */
+#image {
+    color: @text-muted;
+    font-weight: bold;
+    padding: 0 8px;
+    margin-right: 10px;
+}
+
+/* === MPRIS — texto muted 12px para no competir con el clock ===
+   M1 polish: el MPRIS pasa a gris muted @text-muted y tamaño 12px (vs 13px
+   del resto). dynamic-len y max-length limitan el contenido en config.jsonc.
+   Hover @ice para coherencia con el resto de la barra. */
+#mpris {
+    color: @text-muted;
+    font-size: 12px;
+    padding: 0 6px;
+    margin: 0 1px;
+    background: transparent;
+    border: none;
+    min-width: 18px;
+}
+#mpris:hover {
+    color: @ice;
+}
+
+/* === F.1: PADDING/MARGIN UNIFORME — cluster derecho ===
+   Una sola regla aplica `padding: 0 6px;` a los módulos del cluster derecho.
+   El margen y el ancho mínimo se igualan al estándar de los launchers en la
+   regla siguiente; #tray conserva su geometría interna propia. */
+#idle_inhibitor, #custom-idle,
+#pulseaudio,
+#custom-music-prev, #custom-music-next,
+#network,
+#power-profiles-daemon,
+#custom-bluetooth,
+#custom-docker,
+#cpu, #memory,
+#backlight,
+#battery,
+#tray,
+#custom-power {
+    padding: 0 6px;
+    margin: 0;
+}
+
+/* Estándar de módulos: igual que los launchers (padding 0 6px,
+   margen lateral 1px y ancho mínimo de 18px). El tray queda excluido
+   porque Waybar administra sus iconos y su spacing de forma independiente. */
+#idle_inhibitor, #custom-idle,
+#pulseaudio,
+#custom-music-prev, #custom-music-next,
+#network,
+#power-profiles-daemon,
+#custom-bluetooth,
+#custom-docker,
+#cpu, #memory,
+#backlight,
+#battery,
+#custom-power {
+    margin: 0 1px;
+    min-width: 18px;
+}
+
+/* === F.2: TRANSITIONS para los módulos del cluster derecho ===
+   transition 0.15s ease-out para suavizar el cambio de hover (más
+   rápido que el global `*` de 0.4s porque los iconos piden respuesta
+   ágil al puntero). */
+#idle_inhibitor,
+#custom-idle,
+#pulseaudio,
+#custom-music-prev,
+#custom-music-next,
+#network,
+#power-profiles-daemon,
+#custom-bluetooth,
+#custom-docker,
+#cpu,
+#memory,
+#backlight,
+#battery,
+#tray > * {
+    transition: all 0.15s ease-out;
+}
+
+/* === F.2: HOVER con glow cyan sutil ===
+   text-shadow para resplandor visible; color @ice-soft para contraste
+   sobre fondo negro translúcido. La transition global de 0.15s hace
+   que el cambio sea perceptible sin ser brusco. */
+#idle_inhibitor:hover,
+#custom-idle:hover,
+#pulseaudio:hover,
+#custom-music-prev:hover,
+#custom-music-next:hover,
+#network:hover,
+#power-profiles-daemon:hover,
+#custom-bluetooth:hover,
+#custom-docker:hover,
+#cpu:hover,
+#memory:hover,
+#backlight:hover,
+#battery:hover,
+#tray > *:hover {
+    color: @ice-soft;
+    text-shadow: 0 0 8px alpha(@ice, 0.5);
+}
+
+/* === CUSTOM-CLOCK-CEREMONIAL — sustituye al #clock nativo (F.3) ===
+   Mismo tratamiento visual que tenía #clock en center: texto plano,
+   peso 500, padding generoso para destacar sin caja. Hover vuelve a @ice. */
+#custom-clock-ceremonial {
+    background: transparent;
+    border: none;
+    color: @text;
+    font-weight: 500;
+    font-size: 14px;
+    padding: 0 14px;
+    margin: 0 4px;
+    min-width: 60px;
+    transition: all 0.15s ease-out;
+}
+
+#custom-clock-ceremonial:hover {
+    color: @ice;
+}
