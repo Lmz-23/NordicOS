@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- NordicOS — Raven knotwork (Bloque B Fase 5 POC).
+       Estilo: tallado en madera / runestone. Silueta entrelazada,
+       no realista. Color: accent #78c7ff. Sin fondo.
+       Vista: perfil mirando a la derecha, perchado. -->
+
+  <!-- Cola en abanico (3 plumas curvadas hacia abajo-izquierda) -->
+  <path d="M 18 38
+           C 14 36, 10 38, 8 42
+           C 12 40, 16 40, 18 40 Z"
+        fill="none" stroke="#78c7ff" stroke-width="1.3" stroke-linejoin="round" />
+  <path d="M 16 42
+           C 12 44, 10 48, 10 52
+           C 14 48, 16 46, 18 46 Z"
+        fill="none" stroke="#78c7ff" stroke-width="1.3" stroke-linejoin="round" />
+  <path d="M 20 34
+           C 16 30, 12 30, 8 32
+           C 12 32, 16 34, 20 36 Z"
+        fill="none" stroke="#78c7ff" stroke-width="1.3" stroke-linejoin="round" />
+
+  <!-- Cuerpo principal: silueta orgánica en forma de pera/gota -->
+  <path d="M 22 30
+           C 22 26, 28 24, 36 26
+           C 42 26, 46 24, 48 22
+           C 52 22, 54 24, 54 26
+           C 54 28, 52 30, 48 30
+           C 46 32, 44 34, 44 38
+           C 44 42, 42 46, 36 48
+           C 30 48, 24 48, 22 46
+           C 20 44, 20 40, 20 36
+           C 20 34, 20 32, 22 30 Z"
+        fill="none" stroke="#78c7ff" stroke-width="1.5" stroke-linejoin="round" />
+
+  <!-- Cabeza con pico curvo (cuervos: pico grueso y curvado hacia abajo) -->
+  <circle cx="50" cy="24" r="3.5" fill="none" stroke="#78c7ff" stroke-width="1.4" />
+  <path d="M 53 25
+           C 56 26, 58 26, 60 25
+           C 58 27, 56 28, 53 27 Z"
+        fill="none" stroke="#78c7ff" stroke-width="1.3" stroke-linejoin="round" />
+
+  <!-- Ojo (punto) -->
+  <circle cx="51" cy="23" r="0.7" fill="#78c7ff" />
+
+  <!-- Ala plegada con knotwork sobre el lomo -->
+  <!-- Línea superior del ala (curva desde la cabeza hasta la cola) -->
+  <path d="M 36 28
+           C 32 32, 28 34, 24 36"
+        fill="none" stroke="#78c7ff" stroke-width="1.2" stroke-linecap="round" />
+
+  <!-- Patrón knotwork: dos triángulos entrelazados en el cuerpo -->
+  <!-- Triángulo 1 -->
+  <path d="M 26 36
+           L 34 32
+           L 34 40 Z"
+        fill="none" stroke="#78c7ff" stroke-width="0.9" stroke-linejoin="round" />
+  <!-- Triángulo 2 (entrelazado) -->
+  <path d="M 30 32
+           L 38 36
+           L 30 40 Z"
+        fill="none" stroke="#78c7ff" stroke-width="0.9" stroke-linejoin="round" opacity="0.85" />
+
+  <!-- Detalle decorativo: pequeñas runas/puntos en el pecho -->
+  <circle cx="28" cy="30" r="0.5" fill="#78c7ff" opacity="0.7" />
+  <circle cx="32" cy="30" r="0.5" fill="#78c7ff" opacity="0.7" />
+  <circle cx="36" cy="30" r="0.5" fill="#78c7ff" opacity="0.7" />
+</svg>

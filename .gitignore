@@ -9,3 +9,10 @@ palette/preview.html
 .opencode/
 opencode.json
 opencode.jsonc
+
+# Capturas debug / screenshots de revisión estética (no son entregables)
+/2026*.png
+/ALL_WIDGETS.png
+/COMPARE.png
+/final4.png
+/launchers_check.png

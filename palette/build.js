@@ -55,6 +55,25 @@ const LINE_REGEX = /@define-color\s+(\S+)\s+(#[0-9a-fA-F]+)\s*;\s*(?:\/\*\s*(.+?
 const HEX_REGEX = /^#[0-9a-fA-F]{6}$/;
 
 /* ============================================================================
+ * FONT_STACK — única fuente de verdad para el font stack del sistema
+ * ----------------------------------------------------------------------------
+ * Consolidación del stack tipográfico NordicOS. Definido UNA SOLA VEZ;
+ * cualquier consumidor (waybar style.css, wofi style.css, futuras apps) debe
+ * derivar de aquí. NO duplicar strings en otros archivos.
+ *
+ * JetBrainsMono Nerd Font es la fuente primaria (cubre glifos Nerd Font para
+ * íconos waybar/wofi + texto monoespaciado). Los fallbacks cubren escenarios
+ * donde la fuente Nerd Font no esté disponible (ordenados por probabilidad).
+ *
+ * El stack está entrecomillado para CSS (comillas dobles exteriores, comillas
+ * simples internas no necesarias). Mismo formato que ya usan waybar y wofi.
+ *
+ * kitty NO usa este stack: usa fontconfig directamente con
+ * `font_family JetBrainsMono Nerd Font` (no soporta fallbacks CSS-style).
+ * ========================================================================== */
+const FONT_STACK = '"JetBrainsMono Nerd Font", "Symbols Nerd Font", FontAwesome, Roboto, Helvetica, Arial, sans-serif';
+
+/* ============================================================================
  * WAYBAR_MAPPING — master token → waybar @define-color name
  * ----------------------------------------------------------------------------
  * Waybar's style.css references colors by Waybar-flavored names (e.g. @ice
@@ -126,6 +145,73 @@ const WOFI_MAPPING = {
   'text':       'text',       // text — blanco hueso
   'border':     'border',     // borders — acero frío
   'text-muted': 'text-muted', // placeholder — texto secundario
+};
+
+/* ============================================================================
+ * DUNST_MAPPING — master token → dunst urgency-section role
+ * ----------------------------------------------------------------------------
+ * Dunst's color scheme is driven by three `[urgency_*]` sections in
+ * `~/.config/dunst/dunstrc`. Each section accepts exactly three directives:
+ * `background`, `foreground`, `frame_color`. The mapping below names the
+ * master token that should populate each directive per urgency level.
+ *
+ * CRITICAL ARCHITECTURAL NOTE — Dunst does NOT merge configs:
+ *   When `~/.config/dunst/dunstrc` exists, Dunst uses it INSTEAD OF
+ *   `/etc/dunst/dunstrc` — the two files are NOT merged. Therefore this
+ *   generated file must be COMPLETE (header + `[global]` + 3 sections).
+ *   The `[global]` block redeclares the upstream defaults so behavior
+ *   matches `/etc/dunst/dunstrc` except for the palette changes in
+ *   `[urgency_*]`. Removing `[global]` would silently change Dunst's
+ *   format / alignment / sort / progress_bar / etc. behavior.
+ *
+ * Background choice: all three urgencies use `surface` (not `bg`). Rationale:
+ *   - `bg` is the iron-furnace full-window color, used as the page/terminal
+ *     background. Using it as the notification background would make
+ *     notifications visually invisible against the desktop.
+ *   - `surface` is the elevated-panel color (panels, popovers), so it reads
+ *     as "this notification is a floating panel above the workspace".
+ *
+ * Frame choice: low → border (subtle), normal → accent (informational,
+ * branded), critical → error (urgent, alarm). The frame IS the urgency cue.
+ * ========================================================================== */
+const DUNST_MAPPING = {
+  'urgency_low':     { background: 'surface', foreground: 'text-muted', frame: 'border' },
+  'urgency_normal':  { background: 'surface', foreground: 'text',      frame: 'accent' },
+  'urgency_critical': { background: 'surface', foreground: 'error',    frame: 'error'  },
+};
+
+/* ============================================================================
+ * AGS_MAPPING — master token → ags theme.ts key
+ * ----------------------------------------------------------------------------
+ * ags widgets consume a TypeScript object exported as `theme` (see
+ * `ags/lib/theme-tokens.ts`, the legacy hand-maintained file we're phasing
+ * out via Phase 6). The generated file (`theme-tokens-auto.ts`) mirrors the
+ * same shape, so widgets can swap their import with no source edits beyond a
+ * single `import` line (Tarea 6.2).
+ *
+ * Identity mapping: ags has NO historical namespace quirk like Waybar's
+ * `ice/danger` renames or Kitty's ANSI extras — every master token maps to a
+ * same-named key in the generated object. The mapping exists as a structure
+ * for symmetry with `WAYBAR_MAPPING` / `KITTY_MAPPING` / `WOFI_MAPPING` /
+ * `DUNST_MAPPING`, AND so that future renaming (e.g. ags adopting `primary`
+ * instead of `accent` upstream) only touches this constant, not the renderer.
+ *
+ * Order is significant: it controls the order of entries in the generated
+ * file, which keeps diffs stable across regenerations.
+ * ========================================================================== */
+const AGS_MAPPING = {
+  'bg':           'bg',
+  'surface':      'surface',
+  'surface-alt':  'surface-alt',
+  'border':       'border',
+  'accent':       'accent',
+  'accent-soft':  'accent-soft',
+  'text':         'text',
+  'text-muted':   'text-muted',
+  'success':      'success',
+  'warning':      'warning',
+  'error':        'error',
+  'shadow':       'shadow',
 };
 
 /* ============================================================================
@@ -296,6 +382,7 @@ function buildPreviewHtml(colors) {
       --success: ${tokens.success || '#6fbf73'};
       --warning: ${tokens.warning || '#d89b3c'};
       --error: ${tokens.error || '#b84c4c'};
+      --shadow: ${tokens.shadow || '#1a1a1a'};  /* (A.1) carbón profundo — shadow de ventanas */
     }
 
     * { box-sizing: border-box; }
@@ -514,6 +601,38 @@ function hexToRgbaString(hex, alphaHex = 'ee') {
 }
 
 /* ============================================================================
+ * hexToHyprlandNumber(hex, alphaHex)
+ * ----------------------------------------------------------------------------
+ * Converts a 6-digit hex color into Hyprland's compact numeric notation
+ * (`0xAARRGGBB`) for properties like `decoration.shadow.color`. Returns a
+ * JavaScript number — not a string — so the caller can format it however
+ * downstream needs.
+ *
+ * `alphaHex` is the alpha channel as a 2-digit hex string (no "0x" prefix).
+ * Default "ee" ≈ 93% opacity, matching the project's "barely transparent"
+ * default for ambient shadow.
+ *
+ * Example:
+ *   hexToHyprlandNumber('#1a1a1a', 'ee') -> 3998364186 (== 0xee1a1a1a)
+ *   hexToHyprlandNumber('#3b556d', 'aa') -> 2856520045 (== 0xaa3b556d)
+ *
+ * Why a separate helper from hexToRgbaString:
+ *   - hexToRgbaString returns a STRING ("rgba(rrggbbaa)") — that's the form
+ *     Hyprland accepts for `col.active_border` (a string-shaped property).
+ *   - This helper returns a NUMBER (0xAARRGGBB as a JS number) — that's the
+ *     form Hyprland accepts for `decoration.shadow.color` (a numeric
+ *     property). The two are interchangeable at runtime in Hyprland but NOT
+ *     at the type level here, so keeping them separate prevents accidental
+ *     cross-use.
+ * ========================================================================== */
+function hexToHyprlandNumber(hex, alphaHex = 'ee') {
+  if (typeof hex !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(hex)) {
+    return hex; // passthrough on malformed input (consistent with hexToRgba* helpers)
+  }
+  return parseInt(`${alphaHex}${hex.slice(1)}`, 16);
+}
+
+/* ============================================================================
  * KITTY_EXTRAS — hardcoded ANSI palette extensions
  * ----------------------------------------------------------------------------
  * Three colors live outside master.css because they are part of the 16-color
@@ -713,7 +832,7 @@ function buildWofiStyle(tokens) {
     // rather than a transient popup.
     `    border: 2px solid ${t.accent};`,
     '    border-radius: 12px;',
-    '    font-family: "JetBrainsMono Nerd Font", sans-serif;',
+    `    font-family: ${FONT_STACK};`,
     // 1px inset shadow tinted with accent @10% — adds depth without making
     // the window look "doubled". Reads as a subtle inner bevel.
     `    box-shadow: inset 0 0 0 1px ${accentInnerShadow};`,
@@ -846,8 +965,12 @@ function buildWofiStyle(tokens) {
  *
  * Pure function — no I/O of its own. The two validation steps below are
  * read-only (luac `-p` = parse only, no codegen; pattern check is a pure
- * substring scan). Param: tokens map. Returns: Lua block string (with
- * trailing newline). Throws on validation failure.
+ * substring scan). Param: tokens map. Returns: Lua block string WITHOUT
+ * a trailing newline — `replaceMarkerBlock` preserves the newline that
+ * already follows the end marker in the target file, so appending our own
+ * would duplicate it (and historically accumulated one extra blank line
+ * per build, producing spurious mtime bumps + unnecessary backups).
+ * Throws on validation failure.
  * ========================================================================== */
 function buildHyprlandColors(tokens) {
   // Resolve master tokens with fallbacks so a missing token can't produce
@@ -902,7 +1025,21 @@ function buildHyprlandColors(tokens) {
     '-- <<< NORDICOS PALETTE END <<<',
   ];
 
-  const content = block.join('\n') + '\n';
+  // NOTE: do NOT append a trailing '\n' here.
+  //
+  // `replaceMarkerBlock` splices the result between the markers, preserving
+  // whatever already follows the end marker in the target file (the file's
+  // own newline after `-- <<< NORDICOS PALETTE END <<<`). Concatenating an
+  // extra '\n' here produced a blank line post-marker AND — because each
+  // build rewrote the file — caused the blank-line count to grow by one
+  // every run (the previously-accumulated blank lines were re-sliced back
+  // in). Net effect: mtime bumped on every build even with no real change,
+  // backups filled up, and idempotency was broken.
+  //
+  // Removing the trailing newline restores idempotency: as long as the
+  // tokens don't change, the spliced output is byte-identical to the
+  // previous build.
+  const content = block.join('\n');
 
   // --- Validation 1: luac syntax check ------------------------------------
   // If `luac` is installed, parse the block to catch any Lua syntax
@@ -977,6 +1114,337 @@ function buildHyprlandColors(tokens) {
   }
 
   return content;
+}
+
+/* ============================================================================
+ * buildHyprlandShadow(tokens)
+ * ----------------------------------------------------------------------------
+ * Renders the Hyprland shadow-color block that lives between the
+ * `-- >>> NORDICOS SHADOW START >>>` and `-- <<< NORDICOS SHADOW END <<<`
+ * markers inside `~/.config/hypr/hyprland.lua`.
+ *
+ * The block is designed to live INSIDE `decoration.shadow = { ... }`. It
+ * emits ONLY the `color` field — `enabled`, `range`, and `render_power`
+ * remain user-owned (they're preferences, not palette decisions).
+ *
+ * Marker block independence:
+ *   This block uses ITS OWN markers (SHADOW), NOT the PALETTE markers that
+ *   `buildHyprlandColors` uses. The two blocks can therefore evolve
+ *   independently and are spliced by separate `replaceMarkerBlock` calls.
+ *
+ * Numeric form (not rgba string):
+ *   Hyprland accepts both `"0xAARRGGBB"` (Lua hex literal) and
+ *   `"rgba(rrggbbaa)"` (string-form) for color properties. We use the
+ *   numeric form here because `decoration.shadow.color` is canonically a
+ *   numeric value in Hyprland's config grammar (and matches what the user
+ *   had hand-written before this tokenization: `0xee1a1a1a`). The helper
+ *   `hexToHyprlandNumber` is the sole producer of the JS number we then
+ *   format as `0x` + hex literal.
+ *
+ * Pure function — no I/O of its own. Two validations below are read-only
+ * (luac `-p` parse-only, pattern check is a substring scan). Param: tokens
+ * map. Returns: Lua block string WITHOUT a trailing newline — same
+ * idempotency contract as `buildHyprlandColors`.
+ * Throws on validation failure.
+ * ========================================================================== */
+function buildHyprlandShadow(tokens) {
+  // Resolve master token with a fallback so a missing token can't produce
+  // an invalid Lua block (Hyprland would silently ignore a malformed
+  // number). Default matches the historical hardcoded `0xee1a1a1a` value
+  // the user had before tokenization.
+  const shadow = tokens.shadow || '#1a1a1a';
+
+  // hexToHyprlandNumber returns a JS number (e.g. 0xee1a1a1a = 3998364186);
+  // format as a Lua hex literal so the emitted block reads `0xee1a1a1a`,
+  // matching Hyprland's canonical shadow.color syntax.
+  const shadowNum = hexToHyprlandNumber(shadow, 'ee');
+  const shadowLiteral = `0x${shadowNum.toString(16).padStart(8, '0')}`;
+
+  // Trailing comma after `color = 0xee1a1a1a,` is OPTIONAL at the end of
+  // a Lua table but VALID syntax; preserved for safety in case the user
+  // adds more shadow fields later (mirrors buildHyprlandColors' contract).
+  // The block is timestamp-free for stable byte diffs against git.
+  const block = [
+    '-- >>> NORDICOS SHADOW START >>>',
+    '-- GENERATED — DO NOT EDIT MANUALLY',
+    '-- Source: /home/lmz/nordicos/palette/master.css',
+    '-- Generated by: palette/build.js',
+    '',
+    `color = ${shadowLiteral},`,
+    '',
+    '-- <<< NORDICOS SHADOW END <<<',
+  ];
+
+  // NOTE: do NOT append a trailing '\n' here. Same reason as
+  // buildHyprlandColors — `replaceMarkerBlock` preserves the file's
+  // existing newline after the end marker, and adding our own would
+  // accumulate blank lines across rebuilds.
+  const content = block.join('\n');
+
+  // --- Validation 1: luac syntax check ------------------------------------
+  // Same approach as buildHyprlandColors: wrap the block in a mock
+  // table so the standalone parse mimics the real context (the block
+  // lives inside `decoration.shadow = { ... }`). Trailing `,` after the
+  // assignment is OPTIONAL here (the block is the last field) but we
+  // include it to mirror the real-world usage where the user may add
+  // more shadow fields below the markers.
+  try {
+    const wrapped = `local shadow = {\n${content}\n}\n`;
+    execSync('luac -p -', { input: wrapped, stdio: ['pipe', 'pipe', 'pipe'] });
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      // luac not installed — degraded validation, pattern check below still runs.
+    } else {
+      const diagnostic = err.stderr
+        ? err.stderr.toString().trim()
+        : (err.message || '(sin diagnóstico)');
+      throw new Error(
+        `Hyprland shadow block failed luac syntax check.\n` +
+        `Diagnostic: ${diagnostic}\n` +
+        `--- Generated content ---\n${content}`
+      );
+    }
+  }
+
+  // --- Validation 2: structural pattern check ----------------------------
+  // Three required substrings (intentionally strict — false positives are
+  // cheap to fix; false negatives ship a broken block):
+  //   - '-- >>> NORDICOS SHADOW START >>>' → block begins with its OWN marker
+  //                                         (not the PALETTE one)
+  //   - 'color = 0x'                       → valid assignment to a hex literal
+  //   - '-- <<< NORDICOS SHADOW END <<<'   → block ends with its OWN marker
+  const requiredSubstrings = [
+    '-- >>> NORDICOS SHADOW START >>>',
+    'color = 0x',
+    '-- <<< NORDICOS SHADOW END <<<',
+  ];
+  const missing = requiredSubstrings.filter((s) => !content.includes(s));
+  if (missing.length > 0) {
+    throw new Error(
+      `Hyprland shadow block failed pattern check.\n` +
+      `Missing required substrings: ${missing.join('; ')}\n` +
+      `--- Generated content ---\n${content}`
+    );
+  }
+
+  return content;
+}
+
+/* ============================================================================
+ * buildDunstConfig(tokens)
+ * ----------------------------------------------------------------------------
+ * Renders the complete contents of `~/.config/dunst/dunstrc` from the master
+ * tokens. The output has three logical regions:
+ *
+ *   1. Header          — provenance + the "Dunst does NOT merge" warning
+ *   2. [global]        — redeclares the upstream defaults from
+ *                        /etc/dunst/dunstrc so behavior matches the system
+ *                        config. Values are NOT adjusted — keeping the
+ *                        upstream defaults preserves stock Dunst behavior
+ *                        (format, alignment, sort, progress bar, mouse
+ *                        bindings, transparency). Only the curated subset
+ *                        called out by the spec is emitted; everything else
+ *                        in [global] falls back to Dunst's compiled-in
+ *                        defaults.
+ *   3. [urgency_*]     — three sections, one per urgency level, each with
+ *                        `background` / `foreground` / `frame_color` set
+ *                        from DUNST_MAPPING → master tokens.
+ *
+ * Why [global] is non-negotiable: Dunst does NOT merge /etc/dunst/dunstrc
+ * with ~/.config/dunst/dunstrc. The latter, when present, REPLACES the
+ * former outright. Therefore this file MUST be complete — omitting [global]
+ * would silently degrade Dunst's behavior (losing the progress bar, the
+ * formatted bold-title layout, the keyboard-mouse bindings, etc.).
+ *
+ * Curated [global] subset (per the A.4 spec):
+ *   - format               → "<b>%s</b>\n%b"  (upstream default)
+ *   - sort                 → yes               (upstream default)
+ *   - alignment            → left              (upstream default)
+ *   - vertical_alignment   → center            (upstream default)
+ *   - follow               → keyboard          (OVERRIDE — see note below)
+ *   - mouse_left_click     → close_current     (upstream default)
+ *   - mouse_middle_click   → do_action, close_current  (upstream default)
+ *   - mouse_right_click    → close_all         (upstream default)
+ *   - transparency         → 0                 (upstream default)
+ *
+ * follow = keyboard (overriding upstream's `none`) is INTENTIONAL: in a
+ * multi-monitor Hyprland setup, `monitor = 0` (the default Dunst falls back
+ * to when the curated block omits `monitor`) binds to the FIRST wl_output
+ * in the registry, which on this host is HDMI-A-1 (the external display,
+ * workspace 2). With `follow = none`, every notification — regardless of
+ * which workspace the user is on when they click — lands on that fixed
+ * output. Setting `follow = keyboard` routes each notification to the
+ * output that contains the window with keyboard focus, i.e. the active
+ * workspace's monitor. The man page confirms the Wayland semantics:
+ * "On Wayland there is no difference between mouse and keyboard focus.
+ * When either of them is used, the compositor will choose an output."
+ * See battery_detail.sh bug report 2026-07-08 for the original diagnosis.
+ *
+ * Pure function — no I/O. Param: tokens map from parseMaster().tokens.
+ * Returns: string with the full dunstrc content, NO trailing newline (matches
+ *          the buildHyprlandColors contract for byte-stable idempotency).
+ * ========================================================================== */
+function buildDunstConfig(tokens) {
+  // Resolve every DUNST_MAPPING entry via the master token map. Fallbacks
+  // match the canonical palette so a missing token can't produce an invalid
+  // hex literal (Dunst would silently ignore it — same defensive posture as
+  // buildKittyTheme / buildHyprlandColors).
+  const pick = (masterName, fallback) => tokens[masterName] || fallback;
+
+  // Build a per-urgency config lookup: { bg, fg, frame } for each urgency.
+  // Order is significant: emitted in the same order as DUNST_MAPPING so
+  // generated output stays stable across regenerations.
+  const sections = {};
+  for (const [urgency, roles] of Object.entries(DUNST_MAPPING)) {
+    sections[urgency] = {
+      background: pick(roles.background, '#151c24'),
+      foreground: pick(roles.foreground, '#d4dde3'),
+      frame:      pick(roles.frame,      '#3b556d'),
+    };
+  }
+
+  // Header — timestamp-free for stable byte diffs. The "Dunst does NOT merge"
+  // note is a deliberate operator warning: anyone editing this file by hand
+  // to tweak [global] should not be surprised when upstream defaults don't
+  // "fill in" missing keys.
+  const header = [
+    '# GENERATED FILE — DO NOT EDIT',
+    '# Source: /home/lmz/nordicos/palette/master.css',
+    '# Generated by: palette/build.js',
+    '# To change colors, edit master.css and run `npm run build`.',
+    '# See /home/lmz/nordicos/palette/README.md for details.',
+    '#',
+    '# IMPORTANT: Dunst does NOT merge /etc/dunst/dunstrc with this file.',
+    '# When ~/.config/dunst/dunstrc exists, the system one is IGNORED —',
+    '# so this file MUST be complete ([global] + [urgency_*] sections).',
+    '# The [global] block below redeclares the upstream defaults; remove',
+    '# any line and Dunst will fall back to its compiled-in default for',
+    '# that key (which is usually the same value, but NOT always).',
+    '',
+  ];
+
+  // [global] block — upstream defaults from /etc/dunst/dunstrc (Dunst 1.13.2).
+  // The curated subset is intentionally narrow: 9 keys cover everything the
+  // A.4 spec calls out. Anything else (monitor, origin, font, progress_bar,
+  // ...) falls through to Dunst's compiled-in defaults.
+  //
+  // 4-space indentation matches the upstream dunstrc style.
+  const globalBlock = [
+    '[global]',
+    '    format = "<b>%s</b>\\n%b"',
+    '    sort = yes',
+    '    alignment = left',
+    '    vertical_alignment = center',
+    '    follow = keyboard',
+    '    mouse_left_click = close_current',
+    '    mouse_middle_click = do_action, close_current',
+    '    mouse_right_click = close_all',
+    '    transparency = 0',
+    '',
+  ];
+
+  // [urgency_*] blocks — one per entry in DUNST_MAPPING (iteration order).
+  // Each section uses the same 4-space indent as upstream dunstrc and emits
+  // the three directives Dunst accepts per urgency level.
+  //
+  // Quotes around hex values are REQUIRED: Dunst's INI parser treats a bare
+  // `#RRGGBB` as a comment (everything after `#` is ignored), so without
+  // quotes the color would silently disappear. The upstream dunstrc also
+  // quotes — we follow that contract verbatim.
+  const urgencyBlocks = [];
+  for (const [urgency, hexes] of Object.entries(sections)) {
+    urgencyBlocks.push(
+      `[${urgency}]`,
+      `    background = "${hexes.background}"`,
+      `    foreground = "${hexes.foreground}"`,
+      `    frame_color = "${hexes.frame}"`,
+      ''
+    );
+  }
+
+  // Compose: header + [global] + 3×[urgency_*], joined by '\n'.
+  //
+  // Each sub-array ends with '' so the previous line is newline-terminated
+  // AND the next block starts on a fresh line (the ''+'\n' sequence is what
+  // produces the visible blank line between blocks). The final sub-array's
+  // trailing '' yields a single trailing newline at EOF — every body line
+  // is newline-terminated (POSIX text-file convention) but there is no
+  // redundant blank line at the end of the file.
+  //
+  // This is the same shape buildWaybarTheme / buildKittyTheme / buildWofiStyle
+  // produce (full-file replacement, trailing newline, no blank-line-at-EOF).
+  // It is DELIBERATELY different from buildHyprlandColors, which omits the
+  // trailing newline because its output is spliced between markers and an
+  // extra '\n' would duplicate the newline that already follows the end
+  // marker. Dunst is a full file replacement — trailing newline is correct.
+  return [...header, ...globalBlock, ...urgencyBlocks].join('\n');
+}
+
+/* ============================================================================
+ * buildAgsTheme(tokens)
+ * ----------------------------------------------------------------------------
+ * Renders the contents of `~/.config/ags/lib/theme-tokens-auto.ts` — a
+ * TypeScript module exporting `export const theme = { ... } as const`.
+ *
+ * Background — Phase 6:
+ *   - `ags/lib/theme-tokens.ts` (legacy) is the hand-maintained color file
+ *     that the ags widgets currently import. Phase 6 retires it in favor of
+ *     THIS auto-generated file, which has the same shape so widgets can swap
+ *     their import line with no semantic changes (Tarea 6.2).
+ *
+ * Why `as const`:
+ *   - Makes TS infer literal-type hex strings (`'#0b0f14'` not `string`),
+ *     so ags widgets that compute variants (e.g. opacity overlays) keep
+ *     type narrowing. Matches the shape of the legacy hand-maintained file
+ *     verbatim, so `import { theme } from './theme-tokens-auto'` is a
+ *     drop-in replacement.
+ *
+ * Why key quoting (`'surface-alt'` vs `surface`):
+ *   - TypeScript object keys with hyphens must be quoted. The presence check
+ *     uses a tight regex `/-/` so only the two hyphenated canonical names
+ *     (`surface-alt`, `accent-soft`, `text-muted`) get quoted; everything
+ *     else stays bare for readability.
+ *
+ * Defensive posture (mirrors buildKittyTheme / buildHyprlandColors):
+ *   - Hex values are validated via `/^#[0-9a-fA-F]{6}$/` before emission;
+ *     a malformed or missing token is silently dropped rather than emitting
+ *     an invalid hex that would crash ags at module-load time. The
+ *     `theme.bg` constant gets imported synchronously by every widget, so
+ *     a syntax error would break the whole bar.
+ *
+ * Trailing newline: emitted (matches every other generator in this file and
+ * matches POSIX text-file conventions that `kitty`/`grep`/`git` assume).
+ *
+ * Return shape: a single string (matches buildWaybarTheme, buildKittyTheme,
+ * buildWofiStyle, buildHyprlandColors, buildHyprlandShadow, buildDunstConfig).
+ * The destination file path is resolved in main() so this function stays
+ * a pure function (no I/O, no globals beyond the `tokens` argument).
+ * ========================================================================== */
+function buildAgsTheme(tokens) {
+  const lines = [
+    '// AUTO-GENERATED by palette/build.js — DO NOT EDIT.',
+    '// Regenerado automáticamente al cambiar palette/master.css.',
+    '// Source: /home/lmz/nordicos/palette/master.css',
+    '// See /home/lmz/nordicos/palette/README.md for details.',
+    '',
+    'export const theme = {',
+  ]
+
+  for (const [canonical, target] of Object.entries(AGS_MAPPING)) {
+    const hex = tokens[canonical]
+    if (hex && /^#[0-9a-fA-F]{6}$/.test(hex)) {
+      // Quote keys with hyphens (TS object-literal grammar). Everything else
+      // stays bare for readability.
+      const key = /-/.test(target) ? `'${target}'` : target
+      // Normalize to lowercase to mirror the legacy file's casing.
+      lines.push(`  ${key}: '${hex.toLowerCase()}',`)
+    }
+  }
+
+  lines.push('} as const')
+  lines.push('')
+
+  return lines.join('\n')
 }
 
 /* ============================================================================
@@ -1365,13 +1833,16 @@ async function main() {
     console.log(`✓ Preview HTML written to ${path.relative(PROJECT_ROOT, PREVIEW_HTML)}`);
 
     // --- 5. Render all theme contents (pure) ------------------------------
-    // All four generators are pure (no I/O), so we can compute everything
+    // All five generators are pure (no I/O), so we can compute everything
     // up-front and feed the same strings to either the dry-run display or
     // the real write path below.
     const waybarContent  = buildWaybarTheme(tokens);
     const kittyContent   = buildKittyTheme(tokens);
     const wofiContent    = buildWofiStyle(tokens);
     const hyprlandBlock  = buildHyprlandColors(tokens);
+    const hyprlandShadow = buildHyprlandShadow(tokens);
+    const dunstContent   = buildDunstConfig(tokens);
+    const agsContent     = buildAgsTheme(tokens);
 
     // --- Resolve target paths once so every branch uses the same ones ---
     const waybarThemeFile  = path.join(HOME, '.config', 'waybar', 'themes', 'nordic.css');
@@ -1379,6 +1850,13 @@ async function main() {
     const kittyConfFile    = path.join(HOME, '.config', 'kitty', 'kitty.conf');
     const wofiStyleFile    = path.join(HOME, '.config', 'wofi', 'style.css');
     const hyprlandConfFile = path.join(HOME, '.config', 'hypr', 'hyprland.lua');
+    const dunstrcFile      = path.join(HOME, '.config', 'dunst', 'dunstrc');
+    // FIX 2026-07-16: ahora vive en repo (gestionado via home/.config/ags/lib symlink)
+    //   Antes: escribía a HOME/.config/ags/lib/theme-tokens-auto.ts
+    //   Problema: los widgets en repo importaban '../../lib/theme-tokens-auto' y
+    //   resolvían desde la ubicación real en repo → no encontraban el archivo.
+    //   Solución: el build escribe al repo, la home lo ve via symlink.
+    const agsThemeFile     = path.join(PROJECT_ROOT, 'home', '.config', 'ags', 'lib', 'theme-tokens-auto.ts');
 
     // --- 6. Dry-run branch -----------------------------------------------
     // For each component we either show its would-be content (full file or
@@ -1391,7 +1869,9 @@ async function main() {
       console.log('  2. ' + kittyThemeFile);
       console.log('  3. ' + kittyConfFile + ' (migración one-shot, solo si NO está migrado)');
       console.log('  4. ' + wofiStyleFile + ' (full replacement)');
-      console.log('  5. ' + hyprlandConfFile + ' (solo si markers presentes)');
+      console.log('  5. ' + hyprlandConfFile + ' (palette marker block, solo si markers presentes)');
+      console.log('  6. ' + hyprlandConfFile + ' (shadow marker block, solo si markers presentes)');
+      console.log('  7. ' + dunstrcFile + ' (full replacement)');
       console.log('');
 
       // --- 1. Waybar ---
@@ -1442,7 +1922,7 @@ async function main() {
       console.log('');
 
       // --- 5. Hyprland marker replacement ---
-      console.log('--- 5. hyprland.lua (marker block) ---');
+      console.log('--- 5. hyprland.lua (palette marker block) ---');
       if (!fsSync.existsSync(hyprlandConfFile)) {
         console.log('(hyprland.lua no existe — se omitiría)');
       } else {
@@ -1453,7 +1933,7 @@ async function main() {
           hyprlandBlock
         );
         if (result === null) {
-          console.log('⚠ Hyprland: markers no encontrados. Añádelos manualmente:');
+          console.log('⚠ Hyprland palette: markers no encontrados. Añádelos manualmente:');
           console.log('  -- >>> NORDICOS PALETTE START >>>');
           console.log('  ... (bloque col { ... } existente) ...');
           console.log('  -- <<< NORDICOS PALETTE END <<<');
@@ -1468,6 +1948,63 @@ async function main() {
           }
         }
       }
+
+      // --- 6. Hyprland shadow marker block (independent markers) ----------
+      // Same file, different marker pair (SHADOW vs PALETTE) — they're
+      // independent so each can evolve without touching the other.
+      console.log('');
+      console.log('--- 6. hyprland.lua (shadow marker block) ---');
+      if (!fsSync.existsSync(hyprlandConfFile)) {
+        console.log('(hyprland.lua no existe — se omitiría)');
+      } else {
+        const shadowResult = replaceMarkerBlock(
+          hyprlandConfFile,
+          '-- >>> NORDICOS SHADOW START >>>',
+          '-- <<< NORDICOS SHADOW END <<<',
+          hyprlandShadow
+        );
+        if (shadowResult === null) {
+          console.log('⚠ Hyprland shadow: markers no encontrados. Añádelos manualmente:');
+          console.log('  1. Abre ~/.config/hypr/hyprland.lua');
+          console.log('  2. Localiza `decoration.shadow.color`');
+          console.log('  3. Envuelve la línea con markers:');
+          console.log('       -- >>> NORDICOS SHADOW START >>>');
+          console.log('       color = 0xee1a1a1a');
+          console.log('       -- <<< NORDICOS SHADOW END <<<');
+        } else {
+          const before = fsSync.readFileSync(hyprlandConfFile, 'utf8');
+          const diff = generateDiff(before, shadowResult.newContent, 'hyprland.lua (shadow)');
+          if (diff) {
+            console.log(diff);
+          } else {
+            console.log('(no changes)');
+          }
+        }
+      }
+
+      // --- 7. Dunst (full replacement) ----------------------------------
+      // Same shape as wofi/waybar: a self-contained file is generated in full,
+      // diffed against the on-disk content (if any), and printed if it would
+      // change. `writeComponentWithBackup` handles the actual write in the
+      // real path; the dry-run only previews.
+      console.log('');
+      console.log('--- 7. dunst dunstrc ---');
+      if (fsSync.existsSync(dunstrcFile)) {
+        const before = fsSync.readFileSync(dunstrcFile, 'utf8');
+        const diff = generateDiff(before, dunstContent, 'dunstrc');
+        if (diff) {
+          console.log(diff);
+        } else {
+          console.log('(no changes)');
+        }
+      } else {
+        // First run: no diff to show, but the user benefits from seeing the
+        // exact bytes that will land on disk. `replace(/\n$/, '')` strips
+        // the single trailing newline so the [DRY RUN] sentinel that follows
+        // stays on its own line.
+        console.log(dunstContent.replace(/\n$/, ''));
+      }
+      console.log('');
 
       console.log('─'.repeat(60));
       console.log('DRY RUN — no se escribió a ~/.config/');
@@ -1548,6 +2085,13 @@ async function main() {
         console.log('  Ver palette/README.md para más detalles.');
       } else {
         // Markers found: backup + atomic write + diff.
+        //
+        // shouldBackup / shouldWrite gate on byte-equality so repeated
+        // `npm run build` invocations with no real change produce ZERO
+        // side effects: no backup file, no mtime bump, no log noise.
+        // This is the idempotency guarantee documented in STATE.md and is
+        // what the upstream buildHyprlandColors newline-accumulation bug
+        // (now fixed) was violating.
         let shouldBackup = false;
         const currentContent = fsSync.readFileSync(hyprlandConfFile, 'utf8');
         shouldBackup = (currentContent !== result.newContent);
@@ -1562,11 +2106,19 @@ async function main() {
           console.log('(no backup — contenido idéntico al actual)');
         }
 
-        try {
-          atomicWrite(hyprlandConfFile, result.newContent);
-          console.log(`✓ Hyprland block replaced: ${hyprlandConfFile}`);
-        } catch (err) {
-          console.error(`✗ Failed to write hyprland.lua: ${err.message}`);
+        // Skip the atomic write when content is unchanged. atomicWrite uses
+        // writeFileSync + renameSync, which bumps mtime even for an
+        // identical payload — and `hyprctl reload`/userspace tools that
+        // key off mtime would otherwise re-process unchanged configs.
+        if (shouldBackup) {
+          try {
+            atomicWrite(hyprlandConfFile, result.newContent);
+            console.log(`✓ Hyprland block replaced: ${hyprlandConfFile}`);
+          } catch (err) {
+            console.error(`✗ Failed to write hyprland.lua: ${err.message}`);
+          }
+        } else {
+          console.log('(no write — contenido idéntico al actual)');
         }
 
         if (backupPath) {
@@ -1581,6 +2133,119 @@ async function main() {
         }
       }
     }
+
+    // === 7e2. Hyprland shadow (second marker block) =========================
+    // Same marker-replacement pattern as the palette block but with its OWN
+    // independent markers (SHADOW START/END vs PALETTE START/END), so the two
+    // blocks can evolve independently. If the user's hyprland.lua doesn't
+    // yet have these markers, print setup instructions and skip — we never
+    // auto-inject markers (user-driven decision, same as palette).
+    if (!fsSync.existsSync(hyprlandConfFile)) {
+      console.log('ℹ hyprland.lua no existe — se omite (Hyprland no instalado?)');
+    } else {
+      const shadowResult = replaceMarkerBlock(
+        hyprlandConfFile,
+        '-- >>> NORDICOS SHADOW START >>>',
+        '-- <<< NORDICOS SHADOW END <<<',
+        hyprlandShadow
+      );
+      if (shadowResult === null) {
+        console.log('⚠ Hyprland shadow: markers no encontrados. Añádelos manualmente:');
+        console.log('  1. Abre ~/.config/hypr/hyprland.lua');
+        console.log('  2. Localiza `decoration = { shadow = { ... } }`');
+        console.log('  3. Envuelve SOLO la línea `color = 0xee1a1a1a` con markers:');
+        console.log('       -- >>> NORDICOS SHADOW START >>>');
+        console.log('       color = 0xee1a1a1a');
+        console.log('       -- <<< NORDICOS SHADOW END <<<');
+        console.log('  Ver palette/README.md para más detalles.');
+      } else {
+        // Same byte-equality + backup + atomic-write pattern as the
+        // palette block above. Repeated per the established convention.
+        let shouldBackup = false;
+        const currentContent = fsSync.readFileSync(hyprlandConfFile, 'utf8');
+        shouldBackup = (currentContent !== shadowResult.newContent);
+
+        let backupPath = null;
+        if (shouldBackup) {
+          backupPath = backupFile(hyprlandConfFile, BACKUP_DIR);
+          if (backupPath) {
+            console.log(`✓ Backup saved: ${path.relative(PROJECT_ROOT, backupPath)}`);
+          }
+        } else {
+          console.log('(no backup — shadow block idéntico al actual)');
+        }
+
+        if (shouldBackup) {
+          try {
+            atomicWrite(hyprlandConfFile, shadowResult.newContent);
+            console.log('✓ Hyprland shadow block replaced');
+          } catch (err) {
+            console.error(`✗ Failed to write hyprland.lua (shadow block): ${err.message}`);
+          }
+        } else {
+          console.log('(no write — shadow block idéntico al actual)');
+        }
+
+        if (backupPath) {
+          const oldContent = fsSync.readFileSync(backupPath, 'utf8');
+          const diff = generateDiff(oldContent, shadowResult.newContent, 'hyprland.lua (shadow)');
+          if (diff) {
+            console.log('Diff vs previous:');
+            console.log(diff);
+          } else {
+            console.log('(no changes — shadow block idéntico al anterior)');
+          }
+        }
+      }
+    }
+
+    // === 7f. Dunst (full replacement) =======================================
+    // Same shape as wofi/waybar/kitty: `writeComponentWithBackup` handles
+    // the diff-aware backup + atomic write + diff display in one call.
+    //
+    // Why full replacement (not marker-block like Hyprland):
+    //   1. Dunst does NOT merge system + user configs — the user file, when
+    //      present, REPLACES /etc/dunst/dunstrc outright. A marker-block
+    //      approach would require the user to manually copy /etc/dunst/dunstrc
+    //      to ~/.config/dunst/dunstrc first, then add markers — too much
+    //      setup friction for a daemon that often ships preconfigured by the
+    //      distro.
+    //   2. `~/.config/dunst/` may not exist yet on a fresh install.
+    //      `writeComponentWithBackup` → `atomicWrite` → `fs.mkdirSync(...,
+    //      recursive: true)` handles that automatically.
+    //
+    // Side note: Dunst is a daemon (long-running) — to pick up changes after
+    // the file is rewritten, the operator runs `pkill dunst && dunst &`.
+    // The build itself does NOT reload Dunst (out of scope; reload is the
+    // operator's decision because killing the daemon is intrusive).
+    writeComponentWithBackup({
+      label: 'dunst dunstrc',
+      target: dunstrcFile,
+      content: dunstContent,
+      backupDir: BACKUP_DIR,
+    });
+
+    // === 7g. ags theme-tokens-auto.ts =====================================
+    // Phase 6 newcomer: this is the FIRST non-config-file destination in the
+    // pipeline (every prior destination is a runtime config for an external
+    // process — waybar/kitty/wofi/hypr/dunst — whereas this file is consumed
+    // INSIDE the ags process as a TypeScript module).
+    //
+    // Same shape as dunst/wofi/waybar/kitty: `writeComponentWithBackup`
+    // handles the diff-aware backup + atomic write + diff display in one
+    // call. `atomicWrite` already does `mkdir -p ~/.config/ags/lib/` (the
+    // directory is created on first run, recursively).
+    //
+    // Dry-run is NOT extended here: the dry-run branch prints contents for
+    // config files (waybar/kitty/wofi/hypr/dunst) so the operator can eyeball
+    // diffs pre-flight. ags widgets hot-reload on file change, so a dry-run
+    // pre-print adds noise without value — the real write path suffices.
+    writeComponentWithBackup({
+      label: 'ags theme-tokens-auto.ts',
+      target: agsThemeFile,
+      content: agsContent,
+      backupDir: BACKUP_DIR,
+    });
   } catch (err) {
     // Re-throw with context; process will exit non-zero via the await below.
     console.error('✗ Build failed:', err.message);
@@ -1593,8 +2258,8 @@ async function main() {
  * ----------------------------------------------------------------------------
  * Standard "diff-aware backup + atomic write" flow shared by every component
  * whose target is a fully-replaced file (waybar theme, kitty theme.conf,
- * wofi style.css). Hyprland uses its own flow because the change is a
- * marker-block splice, not a full replacement.
+ * wofi style.css, dunst dunstrc). Hyprland uses its own flow because the
+ * change is a marker-block splice, not a full replacement.
  *
  * Behavior:
  *   - If the target file exists and differs from `content`, snapshot the
@@ -1608,17 +2273,22 @@ async function main() {
  * caller — the rest of the build pipeline is still useful.
  * ========================================================================== */
 function writeComponentWithBackup({ label, target, content, backupDir }) {
-  // Diff-aware backup gate: only snapshot when the on-disk content would
-  // actually change. This keeps BACKUP_DIR meaningful (one snapshot per
-  // state transition) instead of a duplicate per `npm run build` invocation.
-  let shouldBackup = false;
+  // Diff-aware gate: only snapshot AND only write when the on-disk content
+  // would actually change. This keeps BACKUP_DIR meaningful (one snapshot
+  // per state transition) AND keeps mtime stable across `npm run build`
+  // invocations that produce no real change — the latter matters because
+  // (a) `hyprctl reload`/userspace tools that key off mtime don't re-process
+  // unchanged configs, and (b) backups don't accumulate redundant copies.
+  // Renamed `shouldBackup` → `hasChanges` for accuracy now that the same
+  // flag also gates the write.
+  let hasChanges = true;
   if (fsSync.existsSync(target)) {
     const currentContent = fsSync.readFileSync(target, 'utf8');
-    shouldBackup = (currentContent !== content);
+    hasChanges = (currentContent !== content);
   }
 
   let backupPath = null;
-  if (shouldBackup) {
+  if (hasChanges) {
     backupPath = backupFile(target, backupDir);
     if (backupPath) {
       // Log the repo-relative path so the message stays short and copy/paste-safe.
@@ -1630,13 +2300,21 @@ function writeComponentWithBackup({ label, target, content, backupDir }) {
     console.log(`ℹ No existing ${label} — skipped backup (first run)`);
   }
 
-  try {
-    atomicWrite(target, content);
-    console.log(`✓ ${label} written: ${target}`);
-  } catch (err) {
-    // Non-fatal: other components and preview.html may still succeed.
-    console.error(`✗ Failed to write ${label}: ${err.message}`);
-    return;
+  // Skip the atomic write when content is unchanged. atomicWrite uses
+  // writeFileSync + renameSync, which bumps mtime even for an identical
+  // payload — and downstream userspace tools (hyprctl reload, waybar's
+  // inotify watcher, etc.) react to mtime changes, not content equality.
+  if (hasChanges) {
+    try {
+      atomicWrite(target, content);
+      console.log(`✓ ${label} written: ${target}`);
+    } catch (err) {
+      // Non-fatal: other components and preview.html may still succeed.
+      console.error(`✗ Failed to write ${label}: ${err.message}`);
+      return;
+    }
+  } else {
+    console.log(`(no write — contenido idéntico al actual: ${label})`);
   }
 
   // Diff vs previous — only meaningful when we took a backup.
@@ -1660,15 +2338,20 @@ if (require.main === module) {
 // Export internals so future phases / tests can reuse them.
 module.exports = {
   parseMaster,
+  escapeHtml,          // (test-only export — was previously internal; see palette/test/build.test.js)
   buildPreviewHtml,
   buildWaybarTheme,
   buildKittyTheme,
   buildWofiStyle,
   buildHyprlandColors,
+  buildHyprlandShadow,  // (A.1: shadow-color marker block — independent of PALETTE block)
+  buildDunstConfig,    // (A.4: dunst as the 5th fully-generated destination)
+  buildAgsTheme,       // (Phase 6: theme-tokens-auto.ts as the 7th destination)
   migrateKittyConfig,
   replaceMarkerBlock,
   hexToRgba,
   hexToRgbaString,
+  hexToHyprlandNumber,  // (A.1: helper for shadow 0xAARRGGBB numeric form)
   backupFile,
   atomicWrite,
   generateDiff,
@@ -1677,6 +2360,9 @@ module.exports = {
   WAYBAR_MAPPING,
   KITTY_MAPPING,
   WOFI_MAPPING,
+  DUNST_MAPPING,       // (A.4: urgency_low/normal/critical → 3×{bg,fg,frame})
+  AGS_MAPPING,         // (Phase 6: ags identity mapping, 12 master tokens)
+  FONT_STACK,          // (B.1: single source of truth for system font stack)
   KITTY_EXTRAS,
   KITTY_COLOR_LINE_REGEX,
 };
