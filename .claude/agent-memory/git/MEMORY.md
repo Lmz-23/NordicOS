@@ -1,0 +1,1 @@
+- [Layout y convenciones de commit en NordicOS](project_nordicos-repo-layout.md) — backups/ ignorado, agent-memory sí versiona, permisos 755 en scripts
