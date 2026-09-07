@@ -1,0 +1,9 @@
+# NordicOS — archivo GENERADO por install.sh. No editar a mano.
+preload = @WALLPAPER_DIR@/@BOOT_WALLPAPER@
+wallpaper = ,@WALLPAPER_DIR@/@BOOT_WALLPAPER@
+splash = false
+# ipc = on es OBLIGATORIO: el rotador (wallpaper-rotate.sh) usa
+# `hyprctl hyprpaper wallpaper ...` sobre el socket IPC de hyprpaper. Si esto
+# se desactiva o se omite, la rotación se rompe en silencio (el comando falla
+# sin error visible en waybar/hyprland).
+ipc = on
