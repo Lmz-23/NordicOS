@@ -1,0 +1,2 @@
+- [NordicOS docs structure](project_nordicos_docs_structure.md) — README/STATE.md/docs split, priority order, don't duplicate incident detail across tiers
+- [NordicOS install.sh behavior](project_nordicos_install_sh.md) — full $HOME mirror, dynamic SCRIPT_DIR, hyprpaper.conf template render, systemd reconcile

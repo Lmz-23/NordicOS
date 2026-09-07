@@ -1,0 +1,2 @@
+- [NordicOS repo layout](nordicos-repo-layout.md) — dotfiles repo mirrors $HOME via install.sh symlinks; key conventions
+- [No unilateral commits](feedback-no-unilateral-commits.md) — user wants git changes left uncommitted for review, even after explicit large tasks

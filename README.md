@@ -14,17 +14,19 @@
 2. [Filosofía de diseño](#filosofía-de-diseño)
 3. [Arquitectura](#arquitectura)
 4. [Inicio rápido](#inicio-rápido)
-5. [Estructura del proyecto](#estructura-del-proyecto)
-6. [Stack tecnológico](#stack-tecnológico)
-7. [Sistema de paleta](#sistema-de-paleta)
-8. [Comandos disponibles](#comandos-disponibles)
-9. [Flujo de trabajo diario](#flujo-de-trabajo-diario)
-10. [Testing](#testing)
-11. [Documentación](#documentación)
-12. [Versionado y releases](#versionado-y-releases)
-13. [Roadmap](#roadmap)
-14. [Contribución](#contribución)
-15. [Licencia y autoría](#licencia-y-autoría)
+5. [Gestión de wallpapers](#gestión-de-wallpapers)
+6. [Estructura del proyecto](#estructura-del-proyecto)
+7. [Stack tecnológico](#stack-tecnológico)
+8. [Sistema de paleta](#sistema-de-paleta)
+9. [Comandos disponibles](#comandos-disponibles)
+10. [Flujo de trabajo diario](#flujo-de-trabajo-diario)
+11. [Testing](#testing)
+12. [Herramientas de mantenimiento](#herramientas-de-mantenimiento)
+13. [Documentación](#documentación)
+14. [Versionado y releases](#versionado-y-releases)
+15. [Roadmap](#roadmap)
+16. [Contribución](#contribución)
+17. [Licencia y autoría](#licencia-y-autoría)
 
 ---
 
@@ -89,13 +91,17 @@ Un único archivo (`palette/master.css`) declara doce `@define-color` con nombre
 | `error` | `#b84c4c` | Sangre seca sobre acero |
 | `shadow` | `#1a1a1a` | Carbón profundo (Hyprland shadow, alpha `ee`) |
 
-### Tres estrategias de generación
+### Estrategias de generación
 
-El build aplica tres estrategias distintas según la naturaleza del destino:
+`palette/build.js` aplica tres estrategias distintas según la naturaleza del destino:
 
 1. **Full replacement** — el archivo destino se regenera por completo. Usado para `waybar`, `wofi`, `dunst` y `ags`.
 2. **Included via `include`** — `kitty` separa la paleta en un `theme.conf` que `kitty.conf` incluye. La primera ejecución migra el config automáticamente (*one-shot*).
 3. **Marker-block splice** — `hyprland.lua` tiene cientos de líneas (keybinds, monitors, animations). El build delimita dos bloques con markers (`NORDICOS PALETTE START/END` y `NORDICOS SHADOW START/END`) y reemplaza solo el contenido entre ellos. Idempotente y *byte-stable*.
+
+Fuera del build de paleta, `install.sh` usa una cuarta estrategia para un destino distinto (no depende de `master.css`):
+
+4. **Renderizado de plantilla** — `hyprpaper.conf` se genera sustituyendo placeholders (`@WALLPAPER_DIR@`, `@BOOT_WALLPAPER@`) en `templates/hyprpaper.conf.in` vía `sed`, directamente desde `install.sh`. Ver [Gestión de wallpapers](#gestión-de-wallpapers).
 
 ### Renames explícitos
 
@@ -136,7 +142,7 @@ Cada `npm run build` ejecuta:
 ### Instalación
 
 ```bash
-# 1. Clonar el repositorio
+# 1. Clonar el repositorio (la ruta destino es un ejemplo, puede ser cualquiera)
 git clone https://github.com/Lmz-23/NordicOS.git ~/nordicos
 cd ~/nordicos
 
@@ -144,11 +150,18 @@ cd ~/nordicos
 ./install.sh
 ```
 
-El script es idempotente y maneja tres categorías de archivos:
+> **El repo puede clonarse en cualquier ruta.** `install.sh` deriva `SCRIPT_DIR` dinámicamente a partir de su propia ubicación (`$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)`) en vez de asumir una ruta fija — esta es precisamente la propiedad que permitió reparar el sistema cuando el repo se movió de `/home/lmz/nordicos` a `/home/lmz/Proyectos/nordicos`: bastó con volver a ejecutar `./install.sh` desde la nueva ubicación para que todos los symlinks se regeneraran correctamente. Ver [`STATE.md`](STATE.md) para el detalle de ese incidente.
 
-- **Symlinks** (`waybar/config.jsonc`, `ags/*`, `kitty/kitty.conf`, etc.) → apuntando a `home/.config/` en el repo
+`install.sh` es un espejo completo de `$HOME` (`SRC_ROOT="$SCRIPT_DIR/home"` → `DST_ROOT="$HOME"`), no solo de `~/.config/` — esto le permite gestionar también archivos fuera de `.config/`, como los scripts en `~/.local/bin/`.
+
+El script es idempotente y maneja las siguientes categorías de archivos:
+
+- **Symlinks** (`waybar/config.jsonc`, `ags/*`, `kitty/kitty.conf`, `.local/bin/wallpaper-rotate.sh`, etc.) → apuntando a `home/` en el repo
 - **Mirror copy** (`hypr/hyprland.lua`) → sincronizado via `bin/sync-tracking.sh pull`
 - **Generados por build** (`themes/nordic.css`, `theme.conf`, `dunstrc`, etc.) → regenerados en cada `npm run build`
+- **Generado desde plantilla** (`hyprpaper.conf`) → renderizado por el propio `install.sh` a partir de `templates/hyprpaper.conf.in` (ver [Gestión de wallpapers](#gestión-de-wallpapers))
+
+Al final, `install.sh` reconcilia `systemd --user` de forma defensiva (`daemon-reload` + `enable` de `hyprpaper.service` y `wallpaper-rotate.timer`); si `systemctl` no está disponible, el script continúa sin fallar.
 
 Para recargar componentes después de editar:
 ```bash
@@ -169,8 +182,11 @@ pkill dunst && dunst &            # notificaciones
 | Hyprland (shadow) | `~/.config/hypr/hyprland.lua` (entre markers SHADOW) | Marker-block splice |
 | Dunst | `~/.config/dunst/dunstrc` | Full replacement |
 | AGS widgets | `~/.config/ags/lib/theme-tokens-auto.ts` | Full replacement (TypeScript module) |
+| Hyprpaper | `~/.config/hypr/hyprpaper.conf` | Renderizado desde plantilla (`templates/hyprpaper.conf.in`) por `install.sh` |
 
 *Además se genera `palette/preview.html` como artefacto local (ignorado en git).*
+
+`hyprpaper.conf` es un caso aparte: no lo genera `palette/build.js` (no depende de `master.css`), sino `install.sh` directamente, sustituyendo dos placeholders (`@WALLPAPER_DIR@`, `@BOOT_WALLPAPER@`) en la plantilla. Ver [Gestión de wallpapers](#gestión-de-wallpapers).
 
 ### Activar el modo de regeneración automática
 
@@ -179,6 +195,30 @@ npm run watch
 ```
 
 Edita `palette/master.css` en cualquier editor y los siete destinos se regeneran automáticamente al guardar. Debounce de 200 ms; cierre limpio con `Ctrl+C`.
+
+---
+
+## Gestión de wallpapers
+
+El pack de wallpapers vive en `assets/wallpapers/` (10 fondos: `atadura.png`, `bote.png`, `cuervo.png`, `fiord.png`, `guerra.png`, `monolito.png`, `odin.png`, `ragnarok.png`, `thorvsjogg.png`, `tyr&fenrir.png`). Dos mecanismos independientes trabajan sobre este directorio:
+
+### Wallpaper estático al arrancar sesión (`hyprpaper.conf`)
+
+`install.sh` renderiza `templates/hyprpaper.conf.in` hacia `~/.config/hypr/hyprpaper.conf`, aplicando un wallpaper fijo (`guerra.png` por defecto, con fallback automático al primer `.png` alfabético si no existe) de forma inmediata al arrancar `hyprpaper.service` — sin depender de que un timer se dispare después. Este archivo declara `ipc = on`, requisito obligatorio para que el rotador (siguiente sección) pueda hablarle a `hyprpaper` vía `hyprctl hyprpaper wallpaper ...`; si se desactiva, la rotación falla en silencio.
+
+`hyprpaper.conf` se marca como generado con un comentario (`# NordicOS — archivo GENERADO por install.sh. No editar a mano.`) en su primera línea. Si `install.sh` encuentra un `hyprpaper.conf` preexistente sin ese marcador (un archivo artesanal del usuario), lo respalda con timestamp antes de sobrescribirlo. Si el archivo generado no cambia, no se reescribe.
+
+### Rotación periódica (`wallpaper-rotate.sh` + timer)
+
+`home/.local/bin/wallpaper-rotate.sh` (versionado en el repo y symlinkeado por `install.sh`) rota circularmente por todos los `.png` de `assets/wallpapers/` y aplica el mismo wallpaper a todos los monitores conectados vía `hyprctl hyprpaper wallpaper <monitor>,<archivo>`. El índice de rotación persiste en `${XDG_STATE_HOME:-$HOME/.local/state}/wallpaper-rotate-state`.
+
+El script resuelve la ruta del pack de wallpapers en tiempo de ejecución, sin rutas hardcodeadas:
+
+1. Si la variable de entorno `NORDICOS_WALLPAPER_DIR` está definida y apunta a un directorio existente, se usa esa.
+2. Si no, el script asciende desde su propia ubicación real (`readlink -f`) hasta 5 niveles buscando la raíz del repo (marcador: presencia simultánea de `install.sh` y `assets/wallpapers/`).
+3. Si ninguna de las dos resuelve, falla con un error explícito en el log (`~/.local/state/wallpaper-rotate.log`), sin fallback silencioso a una ruta adivinada.
+
+La rotación se dispara mediante `wallpaper-rotate.timer` (`OnBootSec=20min`, `OnUnitActiveSec=20min`) invocando `wallpaper-rotate.service`. El `OnBootSec` ya no necesita ser corto porque el `hyprpaper.conf` estático cubre el arranque en frío; el timer solo se encarga de la rotación periódica posterior.
 
 ---
 
@@ -201,7 +241,16 @@ nordicos/
 ├── assets/
 │   ├── wallpapers/             ← 10 fondos (drakkar, fiordos, runas, etc.)
 │   └── ornaments/              ← Valknut y marcos ornamentales
+├── templates/
+│   └── hyprpaper.conf.in       ← Plantilla renderizada por install.sh (placeholders @WALLPAPER_DIR@, @BOOT_WALLPAPER@)
+├── home/
+│   └── .local/bin/
+│       └── wallpaper-rotate.sh ← Rotador de wallpapers (versionado, symlinkeado por install.sh)
+├── bin/
+│   ├── sync-tracking.sh        ← pull/push de archivos híbridos (hyprland.lua)
+│   └── quarantine-legacy.sh    ← Cuarentena (nunca borrado) de *.bak*/.disabled/.broken/.orig sueltos en ~/.config
 ├── backups/                    ← Snapshots automáticos por cambio (versionados)
+├── install.sh                  ← Espejo de $HOME: symlinks + hyprpaper.conf + systemd + npm install/build
 ├── STATE.md                    ← Estado del proyecto, issues resueltos, pendientes
 ├── package.json
 ├── package-lock.json
@@ -329,6 +378,23 @@ Las pruebas de luac se saltan automáticamente si el binario no está instalado 
 
 ---
 
+## Herramientas de mantenimiento
+
+### `bin/quarantine-legacy.sh`
+
+Compañero de `bin/sync-tracking.sh`. Archiva de forma segura y reversible los archivos `.bak*`/`.disabled`/`.broken`/`.orig` sueltos que se acumulan en `~/.config` tras migraciones o backups históricos (por ejemplo, los que genera `install.sh` cada vez que reemplaza un archivo regular por un symlink).
+
+Funciona en dos fases y **nunca borra ni sigue symlinks** (un symlink roto no se considera basura huérfana):
+
+```bash
+./bin/quarantine-legacy.sh            # Fase 1: inventario, solo lectura
+./bin/quarantine-legacy.sh --apply    # Fase 2: mueve los archivos encontrados
+```
+
+Los archivos se mueven (nunca se copian ni se eliminan) a `backups/quarantine-<timestamp>/`, preservando su ruta relativa dentro de `~/.config`, junto a un `MANIFEST.txt` con instrucciones de restauración. Es idempotente: tras un `--apply`, una nueva corrida en modo inventario debe reportar 0 archivos.
+
+---
+
 ## Documentación
 
 El proyecto tiene tres documentos que se complementan sin duplicarse:
@@ -392,6 +458,7 @@ Issues resueltos en el sistema de paleta actual (ver [`STATE.md`](STATE.md) para
 7. Bug `buildHyprlandColors` (newline extra) — corregido
 8. Block Hyprland shadow con sintaxis string-form — migrado a numeric form
 9. Marker cross-contamination (PALETTE vs SHADOW) — pinneado con tests
+10. Symlinks rotos tras mudanza del repo (`/home/lmz/nordicos` → `/home/lmz/Proyectos/nordicos`) + wallpaper con ruta hardcodeada y aplicación tardía (~30s) al iniciar sesión — corregido: `install.sh` deriva `SCRIPT_DIR` dinámicamente (bastó re-ejecutarlo), `wallpaper-rotate.sh` se versionó en el repo con auto-localización de `assets/wallpapers/`, y se añadió `hyprpaper.conf` estático para eliminar la espera del timer
 
 ---
 

@@ -10,6 +10,10 @@ palette/preview.html
 opencode.json
 opencode.jsonc
 
+# Estado efímero de ejecución del pipeline AIEOS (no versionar).
+# .claude/agent-memory/ SÍ se versiona (memoria de proyecto persistente).
+.claude/pipeline-state.json
+
 # Capturas debug / screenshots de revisión estética (no son entregables)
 /2026*.png
 /ALL_WIDGETS.png

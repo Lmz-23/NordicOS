@@ -196,6 +196,16 @@ git merge develop
 8. **Hyprland shadow block: sintaxis string-form rgba** — migrada a `0xAARRGGBB` numérico (A.1)
 9. **Cross-contamination de markers PALETTE/SHADOW** — pinneado con tests de independencia (A.1)
 
+## Deuda técnica reconocida (fuera de alcance)
+
+- **Referencias a la ruta vieja `/home/lmz/nordicos` en comentarios** — tras la
+  mudanza del repo, quedan comentarios de origen (no código ejecutado) que
+  referencian la ruta anterior en: `STATE.md`, `palette/build.js`,
+  `palette/README.md`, `home/.config/ags/lib/theme-tokens-auto.ts` (líneas 3-4)
+  y `home/.config/hypr/hyprland.lua` (líneas 112 y 153). No afectan
+  funcionalidad; corregirlos queda fuera de alcance de este ciclo de
+  reparación.
+
 ## Componentes pendientes (futuro)
 
 - Hyprlock (lock screen ceremonial) — bloqueado por binario no instalado
